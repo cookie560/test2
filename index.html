@@ -19,8 +19,11 @@
     </style>
 </head>
     <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
-
-    
+ <nav class="glass-nav fixed top-0 w-full z-50">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="showPage(1)">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-lg"><i class="fas fa-bolt text-xs"></i></div>
+                
             </div>
             <div id="nav-links" class="hidden md:flex gap-6 text-sm font-bold text-slate-400">
                 <button onclick="showPage(1)" id="n1" class="pb-1 transition">勝利規則</button>
@@ -30,6 +33,7 @@
                 <button onclick="showPage(5)" id="n5" class="pb-1 transition">執照測驗</button>
             </div>
         </div>
+    </nav>
  
 </body>
 </html>
