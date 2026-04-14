@@ -1,122 +1,233 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>寶可夢卡牌洗牌系統</title>
+    <meta charset="UTF-8" />
+    <title>寶可夢卡牌：視覺洗牌對戰版</title>
     <style>
-        body {
-            background-color: #1a1a1a;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            color: white;
-            font-family: sans-serif;
-        }
+        body { font-family: sans-serif; background: radial-gradient(circle, #0f172a, #020617); color: white; text-align: center; overflow-x: hidden; }
+        h1 { margin: 10px; color: #ffcb05; text-shadow: 2px 2px #3d7dca; }
+        #message { font-size: 20px; margin: 10px; height: 30px; color: #38bdf8; }
+        
+        /* 遊戲板佈局 */
+        .board { display: grid; grid-template-areas: "deck enemy" "deck active" "deck bench" "deck hand" "deck controls"; grid-template-columns: 200px 1fr; gap: 10px; padding: 10px; max-width: 1000px; margin: auto; }
+        
+        /* 牌堆視覺區域 */
+        .deck-area { grid-area: deck; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; border-right: 1px solid #334155; }
+        .deck-visual { position: relative; width: 80px; height: 110px; margin-top: 50px; }
+        
+        .zone { border: 2px dashed #475569; border-radius: 10px; padding: 10px; min-height: 110px; display: flex; align-items: center; justify-content: center; }
+        .enemy { grid-area: enemy; }
+        .active { grid-area: active; }
+        .bench { grid-area: bench; display: flex; justify-content: center; gap: 8px; }
+        .hand { grid-area: hand; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+        .controls { grid-area: controls; }
 
-        .deck-container {
-            position: relative;
-            width: 180px;
-            height: 250px;
-            margin-bottom: 50px;
+        /* 卡牌樣式 */
+        .card { 
+            width: 80px; height: 110px; background: white; color: black; border-radius: 8px; 
+            padding: 5px; cursor: grab; display: flex; flex-direction: column; justify-content: space-between; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 12px;
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
         }
-
-        .card {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 10px;
-            background-size: cover;
-            background-position: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            border: 2px solid #333;
-            /* 讓過渡效果更明顯 */
-            transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            transform-origin: center center;
-            backface-visibility: hidden;
-        }
-
-        button {
-            padding: 15px 30px;
-            font-size: 18px;
-            background: #ffcb05;
-            border: none;
-            border-radius: 30px;
-            cursor: pointer;
-            font-weight: bold;
-            color: #3d7dca;
-            box-shadow: 0 5px 0 #c7a008;
-        }
-
-        button:active {
-            transform: translateY(3px);
-            box-shadow: 0 2px 0 #c7a008;
-        }
+        .deck-card { position: absolute; top: 0; left: 0; background: #3d7dca; border: 2px solid white; color: white; cursor: default; }
+        .hp { font-size: 11px; color: red; font-weight: bold; }
+        
+        button { margin: 5px; padding: 10px 18px; border-radius: 8px; border: none; background: #22c55e; color: white; cursor: pointer; font-weight: bold; }
+        button:hover { background: #16a34a; }
+        button:disabled { background: #475569; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
-    <h2 style="color: #ffcb05;">Pokemon Deck Shuffler</h2>
+<h1>🎮 寶可夢卡牌對戰</h1>
+<div id="message"></div>
+
+<div class="board">
+    <div class="deck-area">
+        <div>牌庫剩餘: <span id="deck-count">0</span></div>
+        <div class="deck-visual" id="deck-visual-container"></div>
+    </div>
+
+    <div class="zone enemy" id="enemy">敵方 Active</div>
+    <div class="zone active" id="active">你的 Active（拖卡到這）</div>
+    <div class="zone bench" id="bench">Bench（輔助區）</div>
+    <div class="zone hand" id="hand"></div>
     
-    <div class="deck-container" id="deck"></div>
+    <div class="controls">
+        <button id="shuffle-btn" onclick="shuffleDeck()">🌀 洗牌動畫</button>
+        <button onclick="drawCard()">📥 抽牌</button>
+        <button onclick="attack()">💥 攻擊</button>
+        <button onclick="endTurn()">⌛ 結束回合</button>
+        <button onclick="resetGame()" style="background:#ef4444">🔄 重置</button>
+    </div>
+</div>
 
-    <button onclick="shuffleDeck()">即刻洗牌！</button>
+<script>
+let deck = [];
+let hand = [];
+let playerActive = null;
+let enemyActive = null;
+let isShuffling = false;
 
-    <script>
-        const cardImages = [
-            'https://images.pokemontcg.io/base1/4_hires.png', // 噴火龍
-            'https://images.pokemontcg.io/base1/58_hires.png', // 皮卡丘
-            'https://images.pokemontcg.io/swsh4/25_hires.png', // 皮卡丘V
-            'https://images.pokemontcg.io/base1/10_hires.png', // 超夢
-            'https://images.pokemontcg.io/base1/2_hires.png',  // 水箭龜
-            'https://images.pokemontcg.io/base1/15_hires.png'  // 妙蛙花
-        ];
+/* 建立牌庫與視覺卡片 */
+function createDeck() {
+    const base = [
+        { name: "皮卡丘", hp: 60, atk: 20 },
+        { name: "小火龍", hp: 70, atk: 25 },
+        { name: "傑尼龜", hp: 70, atk: 20 },
+        { name: "妙蛙種子", hp: 80, atk: 15 }
+    ];
+    deck = [];
+    for (let i = 0; i < 5; i++) {
+        base.forEach(p => deck.push({...p, id: Math.random()}));
+    }
+    renderDeckVisual();
+}
 
-        const deck = document.getElementById('deck');
-        let cardElements = [];
+/* 渲染左側視覺牌堆 */
+function renderDeckVisual() {
+    const container = document.getElementById("deck-visual-container");
+    container.innerHTML = "";
+    const displayCount = Math.min(deck.length, 10); // 視覺上最多顯示10張疊在一起
+    for (let i = 0; i < displayCount; i++) {
+        const d = document.createElement("div");
+        d.className = "card deck-card";
+        d.style.zIndex = i;
+        d.style.transform = `translate(${i * 0.5}px, ${-i * 0.5}px)`;
+        d.innerText = "POKÉ";
+        container.appendChild(d);
+    }
+    document.getElementById("deck-count").innerText = deck.length;
+}
 
-        // 初始化
-        function init() {
-            cardImages.forEach((img, i) => {
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.style.backgroundImage = `url('${img}')`;
-                card.style.zIndex = i;
-                // 初始微偏，像一疊牌
-                card.style.transform = `translate(${i * 2}px, ${-i * 2}px)`;
-                deck.appendChild(card);
-                cardElements.push(card);
-            });
-        }
+/* 融入動畫的洗牌功能 */
+async function shuffleDeck() {
+    if (isShuffling || deck.length === 0) return;
+    isShuffling = true;
+    document.getElementById("shuffle-btn").disabled = true;
+    setMessage("🌀 正在洗牌...");
 
-        async function shuffleDeck() {
-            // 第一階段：全部噴散開來
-            cardElements.forEach((card, i) => {
-                const randomX = (Math.random() - 0.5) * 500;
-                const randomY = (Math.random() - 0.5) * 400;
-                const randomRotate = (Math.random() - 0.5) * 360;
-                
-                card.style.transform = `translate(${randomX}px, ${randomY}px) rotate(${randomRotate}deg)`;
-            });
+    const visualCards = document.querySelectorAll(".deck-card");
+    
+    // 1. 噴散動畫
+    visualCards.forEach((card) => {
+        const tx = (Math.random() - 0.5) * 300;
+        const ty = (Math.random() - 0.5) * 300;
+        const rotate = (Math.random() - 0.5) * 720;
+        card.style.transform = `translate(${tx}px, ${ty}px) rotate(${rotate}deg)`;
+    });
 
-            // 等待動畫播放一半 (400ms)
-            await new Promise(res => setTimeout(res, 500));
+    // 2. 邏輯洗牌 (Fisher-Yates)
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
 
-            // 第二階段：隨機排序後收回
-            const shuffledIndices = [...Array(cardElements.length).keys()].sort(() => Math.random() - 0.5);
-            
-            cardElements.forEach((card, i) => {
-                const newZIndex = shuffledIndices[i];
-                card.style.zIndex = newZIndex;
-                // 回到中心點，並加上微小的偏移量
-                card.style.transform = `translate(${newZIndex * 2}px, ${-newZIndex * 2}px) rotate(0deg)`;
-            });
-        }
+    await new Promise(res => setTimeout(res, 800));
 
-        init();
-    </script>
+    // 3. 收回動畫
+    visualCards.forEach((card, i) => {
+        card.style.transform = `translate(${i * 0.5}px, ${-i * 0.5}px) rotate(0deg)`;
+    });
+
+    setTimeout(() => {
+        isShuffling = false;
+        document.getElementById("shuffle-btn").disabled = false;
+        setMessage("🃏 洗牌完成！");
+        renderDeckVisual();
+    }, 600);
+}
+
+/* 抽牌 */
+function drawCard() {
+    if (isShuffling) return;
+    if (deck.length === 0) { setMessage("❗ 牌庫沒牌了"); return; }
+    const card = deck.shift();
+    hand.push(card);
+    renderAll();
+    renderDeckVisual();
+    setMessage(`📥 抽到 ${card.name}`);
+}
+
+/* 遊戲邏輯與渲染 */
+function startGame() {
+    createDeck();
+    // 初始抽5張
+    for(let i=0; i<5; i++) if(deck.length>0) hand.push(deck.shift());
+    enemyActive = { name: "超夢", hp: 120, atk: 30 };
+    playerActive = null;
+    renderAll();
+    renderDeckVisual();
+    setMessage("👉 拖拽手牌到 Active 開始戰鬥");
+}
+
+function renderAll(){
+    renderHand();
+    renderActive();
+    renderEnemy();
+}
+
+function renderHand() {
+    const handDiv = document.getElementById("hand");
+    handDiv.innerHTML = "";
+    hand.forEach((card, index) => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `<div>${card.name}</div><div class="hp">HP:${card.hp}</div>`;
+        div.draggable = true;
+        div.ondragstart = e => e.dataTransfer.setData("index", index);
+        handDiv.appendChild(div);
+    });
+}
+
+const activeZone = document.getElementById("active");
+activeZone.ondragover = e => e.preventDefault();
+activeZone.ondrop = e => {
+    const index = e.dataTransfer.getData("index");
+    if (playerActive) {
+        setMessage("❌ Active 位置已有寶可夢");
+        return;
+    }
+    playerActive = hand[index];
+    hand.splice(index, 1);
+    renderAll();
+};
+
+function renderActive() {
+    const zone = document.getElementById("active");
+    if (!playerActive) {
+        zone.innerHTML = "你的 Active（拖卡到這）";
+        return;
+    }
+    zone.innerHTML = `<div class="card"><div>${playerActive.name}</div><div class="hp">HP:${playerActive.hp}</div></div>`;
+}
+
+function renderEnemy() {
+    const zone = document.getElementById("enemy");
+    if (!enemyActive) { zone.innerHTML = "🎉 敵人被擊敗！"; return; }
+    zone.innerHTML = `<div class="card" style="border-color:red"><div>${enemyActive.name}</div><div class="hp">HP:${enemyActive.hp}</div></div>`;
+}
+
+function attack() {
+    if (!playerActive || !enemyActive) { setMessage("⚠️ 請先放置寶可夢或確認敵人存在"); return; }
+    enemyActive.hp -= playerActive.atk;
+    setMessage(`💥 造成 ${playerActive.atk} 傷害`);
+    if (enemyActive.hp <= 0) { enemyActive = null; setMessage("🎉 你贏了！"); }
+    renderAll();
+}
+
+function endTurn() {
+    if (!enemyActive || !playerActive) { setMessage("⌛ 回合結束"); return; }
+    playerActive.hp -= enemyActive.atk;
+    setMessage(`😈 敵人攻擊造成 ${enemyActive.atk} 傷害`);
+    if (playerActive.hp <= 0) { playerActive = null; setMessage("💀 你的寶可夢倒下了！"); }
+    renderAll();
+}
+
+function resetGame() { startGame(); }
+function setMessage(msg) { document.getElementById("message").innerText = msg; }
+
+startGame();
+</script>
 </body>
 </html>
