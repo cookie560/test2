@@ -1,4 +1,12 @@
 [
-  { "id": 1, "name": "皮卡丘", "type": "電", "image": "pikachu.png" },
-  { "id": 2, "name": "噴火龍", "type": "火", "image": "charizard.png" }
+  {
+    "name": "Dragapult ex",
+    "hp": 320,
+    "img": "https://images.pokemontcg.io/sv6/130_hires.png"
+  },
+  {
+    "name": "Drakloak",
+    "hp": 90,
+    "img": "https://images.pokemontcg.io/sv6/129_hires.png"
+  }
 ]
