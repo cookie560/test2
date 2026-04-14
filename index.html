@@ -2,216 +2,259 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>PTCG 官方規格對戰模擬器</title>
+    <title>PTCG 官方規格對戰桌面</title>
     <style>
         :root {
-            --ptcg-yellow: #ffcb05;
-            --ptcg-blue: #3d7dca;
-            --field-border: rgba(255, 255, 255, 0.2);
-            --card-w: 75px;
-            --card-h: 105px;
+            --ptcg-blue: #2c5282;
+            --ptcg-gold: #ecc94b;
+            --field-bg: #1a202c;
+            --slot-border: rgba(255, 255, 255, 0.15);
+            --card-w: 80px;
+            --card-h: 112px;
         }
 
         body {
-            margin: 0; background: #121a2a; color: white;
-            font-family: "Microsoft JhengHei", sans-serif;
+            margin: 0; background-color: #0d1117;
+            color: #fff; font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
             display: flex; flex-direction: column; align-items: center;
             overflow: hidden; height: 100vh;
         }
 
-        /* 官方風格場地佈置 */
-        .play-field {
-            width: 980px; height: 580px;
-            background: #1a2438; border: 3px solid #334155;
-            border-radius: 15px; margin-top: 20px;
+        /* 官方風格桌面 */
+        .play-mat {
+            position: relative;
+            width: 1000px; height: 620px;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            border: 4px solid #334155; border-radius: 24px;
             display: grid;
-            grid-template-columns: 140px 1fr 140px;
-            padding: 20px; gap: 10px;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            grid-template-columns: 180px 1fr 180px;
+            padding: 30px; gap: 20px; box-sizing: border-box;
+            margin-top: 20px;
         }
 
-        /* 區域通用樣式 */
+        /* 標籤字體 */
+        .zone-label {
+            position: absolute; bottom: 4px; width: 100%;
+            text-align: center; font-size: 11px; font-weight: bold;
+            color: rgba(255, 255, 255, 0.2); letter-spacing: 1px;
+        }
+
+        /* 插槽樣式 */
         .slot {
-            border: 2px solid var(--field-border);
-            border-radius: 8px; background: rgba(0,0,0,0.2);
-            display: flex; align-items: center; justify-content: center;
-            position: relative; transition: 0.3s;
-        }
-        .slot::after {
-            content: attr(data-label); font-size: 10px; 
-            color: rgba(255,255,255,0.2); position: absolute;
+            border: 2px solid var(--slot-border); border-radius: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            position: relative; display: flex; align-items: center; justify-content: center;
         }
 
-        /* 獎賞卡區 (左側 2x3) */
-        .prizes-grid {
+        /* 1. 左側獎賞卡 (2x3 垂直) */
+        .prize-zone {
             display: grid; grid-template-columns: 1fr 1fr;
-            grid-template-rows: repeat(3, 1fr); gap: 5px;
+            grid-template-rows: repeat(3, 1fr); gap: 10px;
         }
 
-        /* 中間對戰與備戰 */
-        .center-field { display: flex; flex-direction: column; gap: 20px; }
-        .active-area { display: flex; justify-content: center; gap: 60px; height: 160px; }
-        .bench-area { display: flex; justify-content: center; gap: 10px; height: 120px; }
+        /* 2. 中間戰場 (出戰、備戰) */
+        .battle-center { display: flex; flex-direction: column; gap: 30px; }
+        .active-row { display: flex; justify-content: center; gap: 100px; height: 180px; }
+        .bench-row { 
+            display: flex; justify-content: center; gap: 12px; height: 130px; 
+            padding: 10px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;
+        }
 
-        /* 右側功能區 */
-        .side-stack { display: flex; flex-direction: column; gap: 20px; }
+        /* 3. 右側功能區 (棄牌、牌庫、迷失區) */
+        .side-stacks { display: flex; flex-direction: column; gap: 15px; }
 
-        /* 卡牌設計 (仿官方規格) */
+        /* 卡牌樣式 */
         .card {
             width: var(--card-w); height: var(--card-h);
-            background: linear-gradient(135deg, #fff 0%, #e2e8f0 100%);
-            border: 3px solid var(--ptcg-yellow); border-radius: 6px;
-            color: #1e293b; position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-            cursor: grab; overflow: hidden;
+            background: #fff; border: 3px solid var(--ptcg-gold);
+            border-radius: 6px; color: #1a202c; cursor: grab;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            user-select: none; overflow: hidden;
         }
-        .card .hp-row { display: flex; justify-content: space-between; padding: 5px; font-weight: bold; font-size: 10px; }
-        .card .atk-box { font-size: 9px; padding: 5px; margin-top: 10px; border-top: 1px solid #ddd; }
-        
-        .card-back { background: var(--ptcg-blue); border-color: #fff; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        .card:hover { transform: translateY(-8px) scale(1.05); z-index: 10; }
+        .card-inner { padding: 6px; }
+        .card-name { font-size: 11px; font-weight: 900; border-bottom: 1px solid #eee; padding-bottom: 2px; }
+        .card-hp { float: right; color: #e53e3e; font-size: 12px; }
+
+        /* 牌背 */
+        .card-back {
+            background-color: var(--ptcg-blue); border-color: #fff;
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 13px; text-shadow: 1px 1px 2px #000;
+        }
+
+        /* 底部手牌 */
+        .hand-area {
+            position: fixed; bottom: 0; width: 100%; height: 160px;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            display: flex; justify-content: center; align-items: center; gap: -15px;
+            padding-bottom: 10px; backdrop-filter: blur(4px);
+        }
 
         /* 抽牌動畫 */
-        .flying { position: fixed; z-index: 999; pointer-events: none; transition: all 0.6s cubic-bezier(0.19, 1, 0.22, 1); }
-
-        /* 下方手牌區 */
-        .hand-bar {
-            position: fixed; bottom: 0; width: 100%; height: 140px;
-            background: rgba(0,0,0,0.5); display: flex; justify-content: center;
-            align-items: center; gap: 10px; backdrop-filter: blur(10px);
+        .fly {
+            position: fixed; z-index: 999; pointer-events: none;
+            transition: all 0.7s cubic-bezier(0.19, 1, 0.22, 1);
         }
 
-        button {
-            padding: 8px 16px; border-radius: 5px; border: none;
-            background: var(--ptcg-blue); color: white; cursor: pointer; font-weight: bold;
+        /* 控制按鈕 */
+        .btn {
+            background: var(--ptcg-gold); color: #2d3748;
+            border: none; padding: 10px 20px; border-radius: 6px;
+            font-weight: bold; cursor: pointer; margin: 10px;
         }
+        .btn:hover { background: #d69e2e; }
     </style>
 </head>
 <body>
 
-<div id="msg" style="margin-top:10px; color:var(--ptcg-yellow)">請點擊牌庫進行抽牌</div>
+<div id="status" style="margin: 15px; color: #ecc94b; font-weight: bold; height: 20px;"></div>
 
-<div class="play-field">
-    <div class="prizes-grid">
-        <div class="slot" style="width:60px; height:85px;"></div>
-        <div class="slot" style="width:60px; height:85px;"></div>
-        <div class="slot" style="width:60px; height:85px;"></div>
-        <div class="slot" style="width:60px; height:85px;"></div>
-        <div class="slot" style="width:60px; height:85px;"></div>
-        <div class="slot" style="width:60px; height:85px;"></div>
+<div class="play-mat">
+    <div class="prize-zone">
+        <div class="slot" style="width:75px; height:105px;"><div class="zone-label">PRIZE</div></div>
+        <div class="slot" style="width:75px; height:105px;"></div>
+        <div class="slot" style="width:75px; height:105px;"></div>
+        <div class="slot" style="width:75px; height:105px;"></div>
+        <div class="slot" style="width:75px; height:105px;"></div>
+        <div class="slot" style="width:75px; height:105px;"></div>
     </div>
 
-    <div class="center-field">
-        <div class="active-area">
-            <div class="slot" style="width:100px; height:140px;" data-label="敵方出戰"></div>
-            <div class="slot" id="my-active" style="width:100px; height:140px;" data-label="出戰寶可夢" ondragover="event.preventDefault()" ondrop="dropToActive(event)"></div>
+    <div class="battle-center">
+        <div class="active-row">
+            <div class="slot" style="width:110px; height:154px; border-color: rgba(229,62,62,0.3);"><div class="zone-label">對手出戰</div></div>
+            <div class="slot" id="my-active" style="width:110px; height:154px; border-color: var(--ptcg-gold);" ondragover="allowDrop(event)" ondrop="dropToActive(event)">
+                <div class="zone-label">出戰寶可夢</div>
+            </div>
         </div>
-        <div class="bench-area" id="bench">
-            <div class="slot" style="width:85px; height:115px;" data-label="備戰"></div>
-            <div class="slot" style="width:85px; height:115px;" data-label="備戰"></div>
-            <div class="slot" style="width:85px; height:115px;" data-label="備戰"></div>
-            <div class="slot" style="width:85px; height:115px;" data-label="備戰"></div>
-            <div class="slot" style="width:85px; height:115px;" data-label="備戰"></div>
+        <div class="bench-row" id="bench-slots">
+            <div class="slot" style="width:85px; height:119px;" data-label="BENCH"></div>
+            <div class="slot" style="width:85px; height:119px;"></div>
+            <div class="slot" style="width:85px; height:119px;"></div>
+            <div class="slot" style="width:85px; height:119px;"></div>
+            <div class="slot" style="width:85px; height:119px;"></div>
         </div>
     </div>
 
-    <div class="side-stack">
-        <div class="slot" style="height:120px; border-style:solid;" data-label="棄牌區"></div>
-        <div class="slot" id="deck-btn" style="height:120px; cursor:pointer; background:var(--ptcg-blue);" onclick="drawCard()">
-            <div class="card card-back" style="width:70px; height:95px;">DECK</div>
+    <div class="side-stacks">
+        <div class="slot" style="height:100px;"><div class="zone-label">迷失區</div></div>
+        <div class="slot" style="height:140px;"><div class="zone-label">棄牌區</div></div>
+        <div class="slot" id="deck-stack" style="height:140px; cursor:pointer; background: var(--ptcg-blue);" onclick="drawCard()">
+            <div class="card card-back" style="width:75px; height:105px;">DECK</div>
+            <div class="zone-label" id="deck-count" style="color:white; bottom: 10px;">60</div>
         </div>
-        <button onclick="shuffleDeck()">洗牌</button>
+        <button class="btn" onclick="shuffleDeck()">🌀 洗牌系統</button>
     </div>
 </div>
 
-<div class="hand-bar" id="hand"></div>
+<div class="hand-area" id="hand"></div>
 
 <script>
     let deck = [];
     let hand = [];
 
-    // 初始化牌組 (模擬 60 張)
+    // 初始化 60 張標準牌組
     function init() {
-        const pool = [
-            { n: "皮卡丘V", hp: 200, atk: "120" },
-            { n: "噴火龍ex", hp: 330, atk: "330" },
-            { n: "超夢", hp: 120, atk: "50" },
-            { n: "捷拉奧拉", hp: 210, atk: "190" }
-        ];
-        for(let i=0; i<60; i++) {
-            deck.push({...pool[i % pool.length], id: i});
+        const types = ["皮卡丘V", "噴火龍ex", "超夢V", "烈空坐VMAX", "路卡利歐", "快龍"];
+        for (let i = 0; i < 60; i++) {
+            deck.push({
+                name: types[i % types.length],
+                hp: 100 + (Math.floor(Math.random() * 20) * 10),
+                id: 'card-' + i + Date.now()
+            });
         }
-        shuffleArray(deck);
+        updateDeckUI();
     }
 
-    function shuffleArray(arr) {
-        for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
+    function updateDeckUI() {
+        document.getElementById('deck-count').innerText = deck.length;
     }
 
     async function drawCard() {
         if (deck.length === 0) return;
+
+        // 視覺動畫：從牌庫位置飛出
+        const deckEl = document.getElementById('deck-stack');
+        const rect = deckEl.getBoundingClientRect();
         
-        // 飛行動畫
-        const deckBtn = document.getElementById('deck-btn');
-        const rect = deckBtn.getBoundingClientRect();
         const flying = document.createElement('div');
-        flying.className = "card card-back flying";
+        flying.className = "card card-back fly";
         flying.style.left = rect.left + "px";
         flying.style.top = rect.top + "px";
         flying.innerText = "抽牌";
         document.body.appendChild(flying);
 
-        const card = deck.shift();
-        
-        // 飛向手牌中央
+        const cardData = deck.shift();
+        updateDeckUI();
+
+        // 飛行路徑：飛往手牌區域
         setTimeout(() => {
             flying.style.left = "50%";
-            flying.style.top = "90%";
-            flying.style.transform = "translateX(-50%) rotate(360deg)";
+            flying.style.top = "95%";
+            flying.style.transform = "translate(-50%, -50%) rotate(720deg) scale(0.5)";
             flying.style.opacity = "0";
         }, 50);
 
         setTimeout(() => {
             document.body.removeChild(flying);
-            hand.push(card);
+            hand.push(cardData);
             renderHand();
-        }, 650);
+        }, 700);
     }
 
     function renderHand() {
-        const h = document.getElementById('hand');
-        h.innerHTML = "";
-        hand.forEach((c, i) => {
-            const div = document.createElement('div');
-            div.className = "card";
-            div.draggable = true;
-            div.innerHTML = `
-                <div class="hp-row"><span>${c.n}</span><span style="color:red">${c.hp}HP</span></div>
-                <div class="atk-box">⚡ 招式傷害: ${c.atk}</div>
+        const handDiv = document.getElementById('hand');
+        handDiv.innerHTML = "";
+        hand.forEach((card, i) => {
+            const el = document.createElement('div');
+            el.className = "card";
+            el.draggable = true;
+            // 計算疊放效果
+            const rotate = (i - (hand.length - 1) / 2) * 2;
+            el.style.transform = `rotate(${rotate}deg)`;
+            el.style.margin = "0 -10px";
+            
+            el.innerHTML = `
+                <div class="card-inner">
+                    <span class="card-hp">${card.hp} HP</span>
+                    <div class="card-name">${card.name}</div>
+                    <div style="font-size:9px; margin-top:20px; color:#666">● 基礎寶可夢</div>
+                </div>
             `;
-            div.ondragstart = (e) => e.dataTransfer.setData("idx", i);
-            h.appendChild(div);
+            el.ondragstart = (e) => e.dataTransfer.setData("idx", i);
+            handDiv.appendChild(el);
         });
     }
 
+    function allowDrop(e) { e.preventDefault(); }
+
     function dropToActive(e) {
+        e.preventDefault();
         const idx = e.dataTransfer.getData("idx");
         const card = hand[idx];
         hand.splice(idx, 1);
-        e.currentTarget.innerHTML = `
-            <div class="card" style="width:100px; height:140px;">
-                <div class="hp-row"><span>${card.n}</span><span style="color:red">${card.hp}HP</span></div>
-                <div style="padding:10px; font-size:12px;">攻擊力: ${card.atk}</div>
+        
+        const target = document.getElementById('my-active');
+        target.innerHTML = `
+            <div class="card" style="width:110px; height:154px;">
+                <div class="card-inner">
+                    <span class="card-hp" style="font-size:16px">${card.hp}</span>
+                    <div class="card-name" style="font-size:14px">${card.name}</div>
+                </div>
             </div>
         `;
         renderHand();
     }
 
     function shuffleDeck() {
-        shuffleArray(deck);
-        document.getElementById('msg').innerText = "牌組已洗好！";
-        setTimeout(() => document.getElementById('msg').innerText = "", 2000);
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+        const status = document.getElementById('status');
+        status.innerText = "✅ 牌組已洗牌 (Fisher-Yates 演算法)";
+        setTimeout(() => status.innerText = "", 2000);
     }
 
     init();
