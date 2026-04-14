@@ -1,233 +1,223 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8" />
-    <title>寶可夢卡牌：視覺洗牌對戰版</title>
-    <style>
-        body { font-family: sans-serif; background: radial-gradient(circle, #0f172a, #020617); color: white; text-align: center; overflow-x: hidden; }
-        h1 { margin: 10px; color: #ffcb05; text-shadow: 2px 2px #3d7dca; }
-        #message { font-size: 20px; margin: 10px; height: 30px; color: #38bdf8; }
-        
-        /* 遊戲板佈局 */
-        .board { display: grid; grid-template-areas: "deck enemy" "deck active" "deck bench" "deck hand" "deck controls"; grid-template-columns: 200px 1fr; gap: 10px; padding: 10px; max-width: 1000px; margin: auto; }
-        
-        /* 牌堆視覺區域 */
-        .deck-area { grid-area: deck; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; border-right: 1px solid #334155; }
-        .deck-visual { position: relative; width: 80px; height: 110px; margin-top: 50px; }
-        
-        .zone { border: 2px dashed #475569; border-radius: 10px; padding: 10px; min-height: 110px; display: flex; align-items: center; justify-content: center; }
-        .enemy { grid-area: enemy; }
-        .active { grid-area: active; }
-        .bench { grid-area: bench; display: flex; justify-content: center; gap: 8px; }
-        .hand { grid-area: hand; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
-        .controls { grid-area: controls; }
+<meta charset="UTF-8" />
+<title>PTCG 專業對戰模擬器</title>
+<style>
+    :root {
+        --tcg-yellow: #ffcb05;
+        --tcg-blue: #3d7dca;
+        --bg-dark: #1e293b;
+    }
 
-        /* 卡牌樣式 */
-        .card { 
-            width: 80px; height: 110px; background: white; color: black; border-radius: 8px; 
-            padding: 5px; cursor: grab; display: flex; flex-direction: column; justify-content: space-between; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 12px;
-            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-        }
-        .deck-card { position: absolute; top: 0; left: 0; background: #3d7dca; border: 2px solid white; color: white; cursor: default; }
-        .hp { font-size: 11px; color: red; font-weight: bold; }
-        
-        button { margin: 5px; padding: 10px 18px; border-radius: 8px; border: none; background: #22c55e; color: white; cursor: pointer; font-weight: bold; }
-        button:hover { background: #16a34a; }
-        button:disabled { background: #475569; cursor: not-allowed; }
-    </style>
+    body { 
+        margin: 0; background: #0f172a; color: white; 
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        display: flex; flex-direction: column; align-items: center;
+        overflow: hidden;
+    }
+
+    /* 戰場容器 */
+    .playmat {
+        width: 95vw; height: 85vh;
+        background: radial-gradient(circle, #1e293b 0%, #020617 100%);
+        border: 4px solid #334155; border-radius: 20px;
+        display: grid;
+        grid-template-columns: 120px 1fr 120px;
+        grid-template-rows: 1fr 1fr 140px;
+        gap: 10px; padding: 20px; box-sizing: border-box;
+        margin-top: 10px;
+    }
+
+    /* 區域樣式 */
+    .zone { 
+        border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        position: relative; background: rgba(255,255,255,0.02);
+    }
+
+    .prizes { grid-row: 1 / 3; display: flex; flex-direction: column; gap: 5px; }
+    .side-bar { grid-column: 3; display: flex; flex-direction: column; gap: 10px; }
+    
+    /* 對戰中心區 */
+    .battle-field { grid-column: 2; display: flex; flex-direction: column; gap: 10px; }
+    .active-row { height: 50%; display: flex; justify-content: space-around; align-items: center; }
+    .bench-row { height: 40%; display: flex; justify-content: center; gap: 10px; }
+
+    /* 卡牌設計 */
+    .card {
+        width: 80px; height: 112px;
+        background: linear-gradient(135deg, #fef3c7 0%, #f59e0b 100%);
+        border: 3px solid var(--tcg-yellow); border-radius: 6px;
+        color: #1e293b; position: relative; cursor: grab;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: 10px; font-weight: bold; overflow: hidden;
+    }
+
+    .card:hover { transform: translateY(-5px) scale(1.05); z-index: 100; }
+    .card .hp { position: absolute; top: 5px; right: 5px; color: #dc2626; font-size: 12px; }
+    .card .name { padding: 8px 5px 2px; border-bottom: 1px solid rgba(0,0,0,0.1); }
+    
+    /* 牌背樣式 */
+    .card-back {
+        background: var(--tcg-blue); border-color: white;
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 12px; text-transform: uppercase;
+    }
+
+    /* 手牌區 */
+    .hand-area { 
+        grid-column: 2; display: flex; justify-content: center; gap: -20px; 
+        padding: 10px; background: rgba(0,0,0,0.3); border-radius: 50px 50px 0 0;
+    }
+
+    /* 控制鈕 */
+    .controls { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; }
+    button {
+        padding: 10px 20px; border-radius: 8px; border: none;
+        background: var(--tcg-blue); color: white; font-weight: bold;
+        cursor: pointer; box-shadow: 0 4px #1d4ed8;
+    }
+    button:active { transform: translateY(2px); box-shadow: 0 2px #1d4ed8; }
+    
+    #message { font-size: 18px; color: var(--tcg-yellow); margin: 5px; height: 25px; }
+</style>
 </head>
 <body>
 
-<h1>🎮 寶可夢卡牌對戰</h1>
-<div id="message"></div>
+<div id="message">準備戰鬥！</div>
 
-<div class="board">
-    <div class="deck-area">
-        <div>牌庫剩餘: <span id="deck-count">0</span></div>
-        <div class="deck-visual" id="deck-visual-container"></div>
+<div class="playmat">
+    <div class="prizes zone" id="prizes">獎賞卡</div>
+
+    <div class="battle-field">
+        <div class="active-row">
+            <div class="zone" id="enemy-active" style="width:100px; height:140px;">敵方出戰</div>
+            <div class="zone" id="player-active" style="width:100px; height:140px;" ondragover="allowDrop(event)" ondrop="dropToActive(event)">我的出戰</div>
+        </div>
+        <div class="bench-row" id="bench">
+            <div class="zone" style="width:80px; height:112px;"></div>
+            <div class="zone" style="width:80px; height:112px;"></div>
+            <div class="zone" style="width:80px; height:112px;"></div>
+        </div>
     </div>
 
-    <div class="zone enemy" id="enemy">敵方 Active</div>
-    <div class="zone active" id="active">你的 Active（拖卡到這）</div>
-    <div class="zone bench" id="bench">Bench（輔助區）</div>
-    <div class="zone hand" id="hand"></div>
-    
-    <div class="controls">
-        <button id="shuffle-btn" onclick="shuffleDeck()">🌀 洗牌動畫</button>
-        <button onclick="drawCard()">📥 抽牌</button>
-        <button onclick="attack()">💥 攻擊</button>
-        <button onclick="endTurn()">⌛ 結束回合</button>
-        <button onclick="resetGame()" style="background:#ef4444">🔄 重置</button>
+    <div class="side-bar">
+        <div class="zone" id="deck-visual" style="height:140px; cursor:pointer;" onclick="drawCard()">
+            </div>
+        <div class="zone" id="discard" style="height:140px;">棄牌區</div>
     </div>
+
+    <div class="hand-area" id="hand"></div>
+</div>
+
+<div class="controls">
+    <button onclick="shuffleDeck()" style="background:#f59e0b">🌀 洗牌</button>
+    <button onclick="attack()">💥 攻擊</button>
+    <button onclick="endTurn()">⌛ 結束回合</button>
 </div>
 
 <script>
 let deck = [];
 let hand = [];
 let playerActive = null;
-let enemyActive = null;
-let isShuffling = false;
 
-/* 建立牌庫與視覺卡片 */
-function createDeck() {
-    const base = [
+function initGame() {
+    const data = [
         { name: "皮卡丘", hp: 60, atk: 20 },
-        { name: "小火龍", hp: 70, atk: 25 },
-        { name: "傑尼龜", hp: 70, atk: 20 },
-        { name: "妙蛙種子", hp: 80, atk: 15 }
+        { name: "噴火龍", hp: 180, atk: 120 },
+        { name: "超夢", hp: 120, atk: 80 },
+        { name: "甲賀忍蛙", hp: 130, atk: 60 },
+        { name: "路卡利歐", hp: 110, atk: 70 }
     ];
     deck = [];
-    for (let i = 0; i < 5; i++) {
-        base.forEach(p => deck.push({...p, id: Math.random()}));
+    for(let i=0; i<6; i++) {
+        data.forEach(p => deck.push({...p, id: Math.random()}));
     }
-    renderDeckVisual();
+    renderDeck();
 }
 
-/* 渲染左側視覺牌堆 */
-function renderDeckVisual() {
-    const container = document.getElementById("deck-visual-container");
-    container.innerHTML = "";
-    const displayCount = Math.min(deck.length, 10); // 視覺上最多顯示10張疊在一起
-    for (let i = 0; i < displayCount; i++) {
-        const d = document.createElement("div");
-        d.className = "card deck-card";
-        d.style.zIndex = i;
-        d.style.transform = `translate(${i * 0.5}px, ${-i * 0.5}px)`;
-        d.innerText = "POKÉ";
-        container.appendChild(d);
-    }
-    document.getElementById("deck-count").innerText = deck.length;
+function renderDeck() {
+    const deckDiv = document.getElementById('deck-visual');
+    deckDiv.innerHTML = `<div class="card card-back" style="position:absolute; top:0; left:15px;">Deck<br>${deck.length}</div>`;
 }
 
-/* 融入動畫的洗牌功能 */
 async function shuffleDeck() {
-    if (isShuffling || deck.length === 0) return;
-    isShuffling = true;
-    document.getElementById("shuffle-btn").disabled = true;
-    setMessage("🌀 正在洗牌...");
-
-    const visualCards = document.querySelectorAll(".deck-card");
+    const deckDiv = document.getElementById('deck-visual');
+    setMessage("正在洗牌...");
     
-    // 1. 噴散動畫
-    visualCards.forEach((card) => {
-        const tx = (Math.random() - 0.5) * 300;
-        const ty = (Math.random() - 0.5) * 300;
-        const rotate = (Math.random() - 0.5) * 720;
-        card.style.transform = `translate(${tx}px, ${ty}px) rotate(${rotate}deg)`;
-    });
-
-    // 2. 邏輯洗牌 (Fisher-Yates)
+    // 視覺特效：牌組抖動
+    deckDiv.style.animation = "shake 0.5s infinite";
+    
+    // Fisher-Yates 洗牌
     for (let i = deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [deck[i], deck[j]] = [deck[j], deck[i]];
     }
 
-    await new Promise(res => setTimeout(res, 800));
-
-    // 3. 收回動畫
-    visualCards.forEach((card, i) => {
-        card.style.transform = `translate(${i * 0.5}px, ${-i * 0.5}px) rotate(0deg)`;
-    });
-
-    setTimeout(() => {
-        isShuffling = false;
-        document.getElementById("shuffle-btn").disabled = false;
-        setMessage("🃏 洗牌完成！");
-        renderDeckVisual();
-    }, 600);
+    await new Promise(r => setTimeout(r, 1000));
+    deckDiv.style.animation = "";
+    setMessage("洗牌完成！");
+    renderDeck();
 }
 
-/* 抽牌 */
 function drawCard() {
-    if (isShuffling) return;
-    if (deck.length === 0) { setMessage("❗ 牌庫沒牌了"); return; }
+    if (deck.length === 0) return;
     const card = deck.shift();
     hand.push(card);
-    renderAll();
-    renderDeckVisual();
-    setMessage(`📥 抽到 ${card.name}`);
-}
-
-/* 遊戲邏輯與渲染 */
-function startGame() {
-    createDeck();
-    // 初始抽5張
-    for(let i=0; i<5; i++) if(deck.length>0) hand.push(deck.shift());
-    enemyActive = { name: "超夢", hp: 120, atk: 30 };
-    playerActive = null;
-    renderAll();
-    renderDeckVisual();
-    setMessage("👉 拖拽手牌到 Active 開始戰鬥");
-}
-
-function renderAll(){
     renderHand();
-    renderActive();
-    renderEnemy();
+    renderDeck();
+    setMessage(`抽到了 ${card.name}`);
 }
 
 function renderHand() {
-    const handDiv = document.getElementById("hand");
+    const handDiv = document.getElementById('hand');
     handDiv.innerHTML = "";
     hand.forEach((card, index) => {
-        const div = document.createElement("div");
+        const div = document.createElement('div');
         div.className = "card";
-        div.innerHTML = `<div>${card.name}</div><div class="hp">HP:${card.hp}</div>`;
         div.draggable = true;
-        div.ondragstart = e => e.dataTransfer.setData("index", index);
+        div.innerHTML = `<div class="name">${card.name}</div><div class="hp">${card.hp} HP</div>`;
+        div.ondragstart = (e) => e.dataTransfer.setData("index", index);
         handDiv.appendChild(div);
     });
 }
 
-const activeZone = document.getElementById("active");
-activeZone.ondragover = e => e.preventDefault();
-activeZone.ondrop = e => {
+function allowDrop(e) { e.preventDefault(); }
+
+function dropToActive(e) {
+    e.preventDefault();
     const index = e.dataTransfer.getData("index");
-    if (playerActive) {
-        setMessage("❌ Active 位置已有寶可夢");
-        return;
-    }
+    if (playerActive) return setMessage("出戰位置已滿！");
+    
     playerActive = hand[index];
     hand.splice(index, 1);
-    renderAll();
-};
+    
+    const zone = document.getElementById('player-active');
+    zone.innerHTML = `<div class="card" style="width:100px; height:140px; font-size:14px;">
+        <div class="name">${playerActive.name}</div>
+        <div class="hp">${playerActive.hp} HP</div>
+    </div>`;
+    renderHand();
+}
 
-function renderActive() {
-    const zone = document.getElementById("active");
-    if (!playerActive) {
-        zone.innerHTML = "你的 Active（拖卡到這）";
-        return;
+function setMessage(m) { document.getElementById('message').innerText = m; }
+
+// 抖動動畫 CSS
+const style = document.createElement('style');
+style.innerHTML = `
+    @keyframes shake {
+        0% { transform: rotate(0deg); }
+        25% { transform: rotate(5deg); }
+        75% { transform: rotate(-5deg); }
+        100% { transform: rotate(0deg); }
     }
-    zone.innerHTML = `<div class="card"><div>${playerActive.name}</div><div class="hp">HP:${playerActive.hp}</div></div>`;
-}
+`;
+document.head.appendChild(style);
 
-function renderEnemy() {
-    const zone = document.getElementById("enemy");
-    if (!enemyActive) { zone.innerHTML = "🎉 敵人被擊敗！"; return; }
-    zone.innerHTML = `<div class="card" style="border-color:red"><div>${enemyActive.name}</div><div class="hp">HP:${enemyActive.hp}</div></div>`;
-}
-
-function attack() {
-    if (!playerActive || !enemyActive) { setMessage("⚠️ 請先放置寶可夢或確認敵人存在"); return; }
-    enemyActive.hp -= playerActive.atk;
-    setMessage(`💥 造成 ${playerActive.atk} 傷害`);
-    if (enemyActive.hp <= 0) { enemyActive = null; setMessage("🎉 你贏了！"); }
-    renderAll();
-}
-
-function endTurn() {
-    if (!enemyActive || !playerActive) { setMessage("⌛ 回合結束"); return; }
-    playerActive.hp -= enemyActive.atk;
-    setMessage(`😈 敵人攻擊造成 ${enemyActive.atk} 傷害`);
-    if (playerActive.hp <= 0) { playerActive = null; setMessage("💀 你的寶可夢倒下了！"); }
-    renderAll();
-}
-
-function resetGame() { startGame(); }
-function setMessage(msg) { document.getElementById("message").innerText = msg; }
-
-startGame();
+initGame();
 </script>
+
 </body>
 </html>
