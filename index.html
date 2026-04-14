@@ -2,137 +2,172 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>PTCG Ultimate - Dragapult Setup</title>
+    <title>PTCG Live Simulator - Dragapult ex</title>
     <style>
         :root {
-            --mat-green: #143314;
-            --ptcg-gold: #ffcb05;
-            --card-w: 80px;
-            --card-h: 112px;
+            --live-blue: #00d2ff;
+            --live-gold: #ffcb05;
+            --live-red: #ff4b2b;
+            --field-dark: #0a140a;
+            --card-w: 82px;
+            --card-h: 115px;
         }
 
         body {
-            margin: 0; background: #050505; color: white;
-            font-family: 'Oswald', sans-serif; overflow: hidden; height: 100vh;
+            margin: 0; background: #000; color: white;
+            font-family: 'Exo 2', 'PingFang TC', sans-serif;
+            overflow: hidden; height: 100vh;
         }
 
-        /* 頂部功能列 */
-        .hud {
-            height: 60px; background: #111; display: flex; 
-            align-items: center; justify-content: space-around;
-            border-bottom: 2px solid var(--ptcg-gold); box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+        /* --- PTCG LIVE STYLE HUD --- */
+        .hud-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 100;
+            display: flex; flex-direction: column; justify-content: space-between;
         }
 
-        /* 3D 對戰場地 */
-        .table {
-            position: relative; width: 1000px; height: 620px;
-            margin: 10px auto; background: var(--mat-green);
-            border-radius: 40px; border: 10px solid #0d210d;
-            display: grid; grid-template-columns: 160px 1fr 160px;
-            padding: 20px; gap: 15px; box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
-            perspective: 1500px;
+        .top-bar {
+            height: 70px; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 50px; pointer-events: auto;
         }
 
-        .zone {
-            border: 2px dashed rgba(255,255,255,0.1); border-radius: 10px;
-            display: flex; align-items: center; justify-content: center; position: relative;
-            background: rgba(255,255,255,0.02); transition: 0.3s;
-        }
-        .zone.hover { background: rgba(255, 203, 5, 0.1); border-color: var(--ptcg-gold); }
-
-        /* 洗牌動畫：物理分層 */
-        .deck-container { position: relative; cursor: pointer; }
-        .deck-card {
-            width: var(--card-w); height: var(--card-h); position: absolute;
-            background-image: url('https://limitlesstcg.s3.us-west-2.amazonaws.com/etc/pokemon-cardback.png');
-            background-size: cover; border-radius: 6px; border: 1px solid #fff;
-            transition: transform 0.4s ease;
+        .player-info { display: flex; align-items: center; gap: 15px; }
+        .hp-counter { 
+            font-size: 28px; font-weight: 900; color: var(--live-gold);
+            text-shadow: 0 0 10px rgba(255, 203, 5, 0.5);
         }
 
-        @keyframes shuffle-left { 
-            0%, 100% { transform: translate(0,0) rotate(0); }
-            50% { transform: translate(-100px, -15px) rotate(-15deg); } 
+        .bottom-controls {
+            height: 100px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            display: flex; justify-content: center; align-items: center; gap: 30px;
+            padding-bottom: 20px; pointer-events: auto;
         }
-        @keyframes shuffle-right { 
-            0%, 100% { transform: translate(0,0) rotate(0); }
-            50% { transform: translate(100px, 15px) rotate(15deg); } 
-        }
-        .shf-l { animation: shuffle-left 0.4s infinite; }
-        .shf-r { animation: shuffle-right 0.4s infinite; }
 
-        /* 卡牌物件 */
-        .card-instance {
+        /* --- 3D ARENA --- */
+        .arena {
+            perspective: 1200px; width: 100%; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            background: radial-gradient(circle at center, #1a2a1a 0%, #000 100%);
+        }
+
+        .board-3d {
+            width: 1100px; height: 650px; transform: rotateX(20deg);
+            transform-style: preserve-3d; display: grid;
+            grid-template-columns: 200px 1fr 200px; gap: 20px; padding: 20px;
+        }
+
+        .slot {
+            border: 2px solid rgba(255,255,255,0.1); border-radius: 12px;
+            background: rgba(255,255,255,0.03); position: relative;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: 0.3s;
+        }
+        .slot.active-slot { border: 2px solid var(--live-blue); box-shadow: 0 0 20px rgba(0, 210, 255, 0.2); }
+        .slot.hover { background: rgba(0, 210, 255, 0.1); border-color: var(--live-blue); }
+
+        /* --- CARDS & ANIMATIONS --- */
+        .card-entity {
             width: var(--card-w); height: var(--card-h); cursor: grab;
-            border-radius: 6px; border: 2px solid white; background-size: cover;
-            position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.4);
-            transition: transform 0.2s;
-        }
-        .card-instance:hover { transform: scale(1.05) translateY(-5px); z-index: 100; }
-        
-        .hp-bar {
-            position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
-            background: #e53935; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;
+            border-radius: 8px; border: 2px solid rgba(255,255,255,0.8);
+            background-size: cover; position: relative; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
         }
 
-        /* 佈局區域 */
-        .bench-row { display: flex; gap: 8px; justify-content: center; margin-top: 20px; }
-        .side-stack { display: flex; flex-direction: column; gap: 15px; }
-
-        /* 手牌區 */
-        .hand-dock {
-            position: fixed; bottom: -20px; width: 100%; height: 160px;
-            display: flex; justify-content: center; align-items: flex-end;
-            padding-bottom: 30px;
+        .energy-dot {
+            position: absolute; top: -10px; right: -10px;
+            width: 24px; height: 24px; background: radial-gradient(circle, #ff6a00, #ee0979);
+            border-radius: 50%; border: 2px solid white; display: flex;
+            align-items: center; justify-content: center; font-size: 12px; font-weight: bold;
+            box-shadow: 0 0 10px #ff6a00;
         }
-        .hand-item { margin-left: -30px; transition: 0.3s; transform-origin: bottom center; }
 
-        .btn {
-            background: var(--ptcg-gold); border: none; padding: 8px 20px;
-            border-radius: 5px; font-weight: bold; cursor: pointer;
+        /* 物理洗牌動畫 */
+        @keyframes riffle-l { 0%,100% {transform:translate(0,0)} 50% {transform:translate(-110px, -10px) rotate(-12deg)} }
+        @keyframes riffle-r { 0%,100% {transform:translate(0,0)} 50% {transform:translate(110px, 10px) rotate(12deg)} }
+        .shf-l { animation: riffle-l 0.4s infinite; }
+        .shf-r { animation: riffle-r 0.4s infinite; }
+
+        /* --- HAND & OTHER --- */
+        .hand-area {
+            position: fixed; bottom: -20px; width: 100%; height: 180px;
+            display: flex; justify-content: center; align-items: flex-end; z-index: 50;
+        }
+        .hand-card { margin-left: -35px; transition: 0.3s; transform-origin: bottom center; }
+        .hand-card:hover { transform: translateY(-50px) scale(1.2) rotate(0deg) !important; z-index: 200; }
+
+        .live-btn {
+            background: linear-gradient(135deg, #00d2ff, #3a7bd5);
+            border: none; padding: 12px 35px; border-radius: 50px;
+            color: white; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,210,255,0.4); transition: 0.2s;
+        }
+        .live-btn:hover { transform: scale(1.05); filter: brightness(1.2); }
+
+        .log-box {
+            position: fixed; left: 20px; bottom: 120px; width: 220px; height: 120px;
+            background: rgba(0,0,0,0.5); border-radius: 8px; padding: 10px;
+            font-size: 12px; color: #888; overflow-y: auto; pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-<div class="hud">
-    <button class="btn" onclick="startShuffle()">🌀 物理洗牌</button>
-    <button class="btn" onclick="draw()">📥 抽卡</button>
-    <div id="game-status">多龍巴魯托 ex 構築測試</div>
-    <div>牌組: <span id="deck-count">60</span> | 棄牌: <span id="discard-count">0</span></div>
-</div>
-
-<div class="table">
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-        <div class="zone" style="height:90px;"></div><div class="zone" style="height:90px;"></div>
-        <div class="zone" style="height:90px;"></div><div class="zone" style="height:90px;"></div>
-        <div class="zone" style="height:90px;"></div><div class="zone" style="height:90px;"></div>
-    </div>
-
-    <div style="display:flex; flex-direction:column; align-items:center;">
-        <div id="active-spot" class="zone" style="width:120px; height:168px;" ondragover="over(event)" ondrop="drop(event, 'active')">
-            <span style="color:rgba(255,255,255,0.1)">ACTIVE</span>
+<div class="hud-overlay">
+    <div class="top-bar">
+        <div class="player-info">
+            <div style="color:#aaa">OPPONENT</div>
+            <div class="hp-counter" id="opp-hp">320</div>
         </div>
-        
-        <div class="bench-row" id="bench-row">
-            <div class="zone" style="width:85px; height:119px;" ondragover="over(event)" ondrop="drop(event, 'bench', 0)"></div>
-            <div class="zone" style="width:85px; height:119px;" ondragover="over(event)" ondrop="drop(event, 'bench', 1)"></div>
-            <div class="zone" style="width:85px; height:119px;" ondragover="over(event)" ondrop="drop(event, 'bench', 2)"></div>
-            <div class="zone" style="width:85px; height:119px;" ondragover="over(event)" ondrop="drop(event, 'bench', 3)"></div>
-            <div class="zone" style="width:85px; height:119px;" ondragover="over(event)" ondrop="drop(event, 'bench', 4)"></div>
+        <div style="letter-spacing: 5px; font-weight: 100;">VS</div>
+        <div class="player-info">
+            <div class="hp-counter" id="play-hp">320</div>
+            <div style="color:#aaa">YOU</div>
         </div>
     </div>
 
-    <div class="side-stack">
-        <div id="discard-pile" class="zone" style="height:150px;" onclick="logDiscard()">
-            <span style="color:rgba(255,255,255,0.1)">DISCARD</span>
-        </div>
-        <div id="deck-zone" class="deck-container" style="height:160px;">
-            <div id="deck-visual"></div>
-        </div>
+    <div class="bottom-controls">
+        <button class="live-btn" style="background: #444;" onclick="startShuffle()">🌀 SHUFFLE</button>
+        <button class="live-btn" onclick="draw()">📥 DRAW CARD</button>
+        <button class="live-btn" style="background: linear-gradient(135deg, #ff4b2b, #ff416c);" onclick="attack()">⚔️ ATTACK</button>
     </div>
 </div>
 
-<div id="hand" class="hand-dock"></div>
+<div class="arena">
+    <div class="board-3d">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; padding:20px;">
+            <div class="slot"></div><div class="slot"></div>
+            <div class="slot"></div><div class="slot"></div>
+            <div class="slot"></div><div class="slot"></div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:space-between;">
+            <div id="o-active" class="slot active-slot" style="width:130px; height:182px;"></div>
+            
+            <div id="p-active" class="slot active-slot" style="width:130px; height:182px;" 
+                 ondragover="over(event)" ondrop="drop(event, 'active')"></div>
+            
+            <div style="display:flex; gap:10px; height:120px;">
+                <div class="slot" style="width:85px;" ondragover="over(event)" ondrop="drop(event, 'bench', 0)"></div>
+                <div class="slot" style="width:85px;" ondragover="over(event)" ondrop="drop(event, 'bench', 1)"></div>
+                <div class="slot" style="width:85px;" ondragover="over(event)" ondrop="drop(event, 'bench', 2)"></div>
+                <div class="slot" style="width:85px;" ondragover="over(event)" ondrop="drop(event, 'bench', 3)"></div>
+                <div class="slot" style="width:85px;" ondragover="over(event)" ondrop="drop(event, 'bench', 4)"></div>
+            </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; justify-content:flex-end; gap:20px; padding:20px;">
+            <div id="discard-slot" class="slot" style="height:140px;">
+                <span style="font-size:10px; color:#444;">DISCARD</span>
+            </div>
+            <div id="deck-zone" style="position:relative; height:160px; cursor:pointer;" onclick="draw()">
+                <div id="deck-stack"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="hand" class="hand-area"></div>
+<div id="log" class="log-box"></div>
 
 <script>
     const cardData = [
@@ -143,18 +178,20 @@
 
     let state = {
         deck: [], hand: [], discard: [],
-        active: null, bench: [null, null, null, null, null]
+        active: null, bench: [null, null, null, null, null],
+        oppHP: 320
     };
 
     function init() {
-        for(let i=0; i<60; i++) state.deck.push({...cardData[i%3], id: Math.random()});
+        for(let i=0; i<60; i++) state.deck.push({...cardData[i%3], id: Math.random(), energy: 0});
         renderDeck();
+        log("Welcome to PTCG Live Sim");
     }
 
-    // 🌀 物理洗牌動畫 (左右交錯)
+    // 🌀 鎖定的物理洗牌動畫
     function startShuffle() {
-        const visual = document.getElementById('deck-visual');
-        const cards = visual.querySelectorAll('.deck-card');
+        log("Riffle Shuffling...");
+        const cards = document.querySelectorAll('.d-card');
         cards.forEach((c, i) => c.classList.add(i % 2 === 0 ? 'shf-l' : 'shf-r'));
 
         setTimeout(() => {
@@ -165,15 +202,15 @@
     }
 
     function renderDeck() {
-        const v = document.getElementById('deck-visual');
-        v.innerHTML = "";
-        for(let i=0; i<Math.min(state.deck.length, 10); i++) {
+        const stack = document.getElementById('deck-stack');
+        stack.innerHTML = "";
+        for(let i=0; i<Math.min(state.deck.length, 12); i++) {
             const d = document.createElement('div');
-            d.className = "deck-card";
-            d.style.top = -i+"px"; d.style.left = i+"px";
-            v.appendChild(d);
+            d.className = "card-entity d-card";
+            d.style.position = "absolute"; d.style.top = -i*2+"px"; d.style.left = i+"px";
+            d.style.backgroundImage = "url('https://limitlesstcg.s3.us-west-2.amazonaws.com/etc/pokemon-cardback.png')";
+            stack.appendChild(d);
         }
-        document.getElementById('deck-count').innerText = state.deck.length;
     }
 
     function draw() {
@@ -188,66 +225,77 @@
         h.innerHTML = "";
         state.hand.forEach((card, i) => {
             const c = document.createElement('div');
-            c.className = "card-instance hand-item";
+            c.className = "card-entity hand-card";
             c.style.backgroundImage = `url(${card.img})`;
             c.draggable = true;
-            c.ondragstart = (e) => e.dataTransfer.setData("handIdx", i);
-            const rot = (i - (state.hand.length-1)/2) * 5;
+            c.ondragstart = (e) => e.dataTransfer.setData("idx", i);
+            const rot = (i - (state.hand.length-1)/2) * 6;
             c.style.transform = `rotate(${rot}deg)`;
             h.appendChild(c);
         });
     }
 
-    // 🖱️ 拖放邏輯
     function over(e) { e.preventDefault(); e.currentTarget.classList.add('hover'); }
-    
-    function drop(e, target, benchIdx) {
+
+    function drop(e, target, bIdx) {
         e.preventDefault();
         e.currentTarget.classList.remove('hover');
-        const handIdx = e.dataTransfer.getData("handIdx");
-        const card = state.hand[handIdx];
+        const idx = e.dataTransfer.getData("idx");
+        const card = state.hand[idx];
 
         if(target === 'active') {
             if(state.active) state.discard.push(state.active);
             state.active = card;
         } else {
-            if(state.bench[benchIdx]) state.discard.push(state.bench[benchIdx]);
-            state.bench[benchIdx] = card;
+            if(state.bench[bIdx]) state.discard.push(state.bench[bIdx]);
+            state.bench[bIdx] = card;
         }
-
-        state.hand.splice(handIdx, 1);
-        renderHand();
-        renderBoard();
-        updateDiscardUI();
+        state.hand.splice(idx, 1);
+        renderBoard(); renderHand(); updateDiscard();
     }
 
     function renderBoard() {
-        const a = document.getElementById('active-spot');
-        a.innerHTML = state.active ? `<div class="card-instance" style="background-image:url(${state.active.img}); width:100%; height:100%;"><div class="hp-bar">HP ${state.active.hp}</div></div>` : "ACTIVE";
+        const pA = document.getElementById('p-active');
+        pA.innerHTML = state.active ? createCard(state.active) : "";
         
-        const bSlots = document.querySelectorAll('#bench-row .zone');
-        state.bench.forEach((card, i) => {
-            bSlots[i].innerHTML = card ? `<div class="card-instance" style="background-image:url(${card.img}); width:100%; height:100%;"><div class="hp-bar">HP ${card.hp}</div></div>` : "";
+        const bSlots = document.querySelectorAll('.board-3d .bench-row .slot');
+        state.bench.forEach((c, i) => {
+            const slots = document.querySelectorAll('.arena .board-3d div:nth-child(2) div:nth-child(3) .slot');
+            slots[i].innerHTML = c ? createCard(c) : "";
         });
+
+        document.getElementById('play-hp').innerText = state.active ? state.active.hp : "0";
+        document.getElementById('o-active').innerHTML = createCard({img: cardData[0].img, energy: 2});
     }
 
-    function updateDiscardUI() {
-        const d = document.getElementById('discard-pile');
-        document.getElementById('discard-count').innerText = state.discard.length;
+    function createCard(c) {
+        return `<div class="card-entity" style="background-image:url(${c.img}); width:100%; height:100%;">
+            <div class="energy-dot">${c.energy || 0}</div>
+        </div>`;
+    }
+
+    function updateDiscard() {
         if(state.discard.length > 0) {
             const top = state.discard[state.discard.length-1];
-            d.innerHTML = `<div class="card-instance" style="background-image:url(${top.img}); width:100%; height:100%; opacity:0.6; filter:grayscale(0.5);"></div>`;
+            document.getElementById('discard-slot').innerHTML = `<div class="card-entity" style="background-image:url(${top.img}); width:100%; height:100%; opacity:0.5; filter:grayscale(1);"></div>`;
         }
     }
 
-    function logDiscard() {
-        if(state.discard.length === 0) return;
-        alert("棄牌區清單：\n" + state.discard.map(c => c.name).join("\n"));
+    function attack() {
+        if(!state.active) return;
+        state.oppHP -= 100;
+        document.getElementById('opp-hp').innerText = state.oppHP;
+        log("Phantom Dive! Deals 100 damage.");
+        if(state.oppHP <= 0) { log("Opponent Knocked Out!"); state.oppHP = 320; }
+    }
+
+    function log(m) {
+        const b = document.getElementById('log');
+        b.innerHTML += `<div>> ${m}</div>`;
+        b.scrollTop = b.scrollHeight;
     }
 
     init();
 </script>
-</body>
-</html>
 </body>
 </html>
