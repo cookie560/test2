@@ -1,0 +1,64 @@
+body {
+    margin: 0;
+    background: #0a0a0a;
+    color: white;
+    font-family: sans-serif;
+}
+
+.header {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    background: #111;
+}
+
+.battle-field {
+    display: flex;
+    justify-content: space-around;
+    padding: 20px;
+}
+
+.zone {
+    width: 100px;
+    height: 140px;
+    border: 2px dashed #555;
+    border-radius: 10px;
+    position: relative;
+}
+
+.zone.big {
+    width: 130px;
+    height: 180px;
+}
+
+.card {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    border-radius: 8px;
+}
+
+.hand {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.hand .card {
+    width: 80px;
+    height: 112px;
+    margin: -20px;
+    cursor: grab;
+}
+
+.log {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    width: 200px;
+    height: 150px;
+    overflow: auto;
+    background: #000a;
+}
