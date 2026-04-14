@@ -2,208 +2,42 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>PTCG Pro Simulator - Dragapult Setup</title>
-    <style>
-        :root {
-            --field-green: #1a472a;
-            --card-w: 80px;
-            --card-h: 112px;
-        }
-
-        body {
-            margin: 0; background: #050505; color: white;
-            font-family: 'Segoe UI', sans-serif; overflow: hidden; height: 100vh;
-            display: flex; flex-direction: column; align-items: center;
-        }
-
-        /* 頂部狀態列 */
-        .header {
-            width: 100%; padding: 10px 0; background: rgba(0,0,0,0.8);
-            display: flex; justify-content: center; gap: 40px; border-bottom: 2px solid #ffcb05;
-        }
-
-        /* 模擬照片中的對戰場 */
-        .battle-field {
-            position: relative; width: 1000px; height: 600px;
-            background: var(--field-green); border: 8px solid #0d2616;
-            border-radius: 40px; margin-top: 20px;
-            display: grid; grid-template-columns: 180px 1fr 180px;
-            padding: 30px; box-sizing: border-box; box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
-        }
-
-        .zone {
-            border: 2px dashed rgba(255,255,255,0.15); border-radius: 10px;
-            display: flex; align-items: center; justify-content: center; position: relative;
-        }
-
-        /* 洗牌特效核心 */
-        .deck-area { cursor: pointer; perspective: 1000px; }
-        .card-stack { position: relative; width: var(--card-w); height: var(--card-h); }
-        
-        .card {
-            width: var(--card-w); height: var(--card-h); position: absolute;
-            border-radius: 6px; border: 1px solid #fff;
-            background-size: cover; backface-visibility: hidden;
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            transform-style: preserve-3d;
-        }
-        .card.back { background-image: url('https://limitlesstcg.s3.us-west-2.amazonaws.com/etc/pokemon-cardback.png'); }
-
-        /* 洗牌動作動畫 */
-        @keyframes shuffle-left {
-            0% { transform: translate(0, 0) rotate(0); }
-            50% { transform: translate(-100px, -10px) rotate(-10deg); }
-            100% { transform: translate(0, 0) rotate(0); }
-        }
-        @keyframes shuffle-right {
-            0% { transform: translate(0, 0) rotate(0); }
-            50% { transform: translate(100px, 10px) rotate(10deg); }
-            100% { transform: translate(0, 0) rotate(0); }
-        }
-        .shuffling-l { animation: shuffle-left 0.4s ease-in-out infinite; }
-        .shuffling-r { animation: shuffle-right 0.4s ease-in-out infinite; }
-
-        /* 扇形手牌區 */
-        .hand-fan {
-            position: fixed; bottom: -40px; width: 100%; height: 200px;
-            display: flex; justify-content: center; align-items: flex-end;
-            pointer-events: none;
-        }
-        .hand-card {
-            width: 100px; height: 140px; margin-left: -40px;
-            transform-origin: bottom center; transition: 0.3s;
-            pointer-events: auto; cursor: grab;
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
-        }
-        .hand-card:hover { transform: translateY(-30px) scale(1.1) !important; z-index: 100; }
-
-        .btn-main {
-            background: #ffcb05; border: none; padding: 10px 25px;
-            font-weight: bold; border-radius: 20px; cursor: pointer;
-            box-shadow: 0 4px #b38f00; transition: 0.2s;
-        }
-        .btn-main:hover { background: #ffe066; }
-    </style>
+    <title>PTCG Simulator</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="header">
-    <button class="btn-main" onclick="startShuffle()">🌀 專業洗牌</button>
-    <button class="btn-main" style="background:#4CAF50; color:white; box-shadow:0 4px #2e7d32;" onclick="drawCard()">📥 抽卡</button>
-    <div>剩餘牌組: <span id="deck-count">60</span></div>
+    <button onclick="startShuffle()">🌀 洗牌</button>
+    <button onclick="drawCard()">📥 抽卡</button>
+    <button onclick="attack()">⚔️ 攻擊</button>
+    <div>牌庫: <span id="deck-count">60</span></div>
 </div>
 
 <div class="battle-field">
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-        <div class="zone" style="height:100px;"></div>
-        <div class="zone" style="height:100px;"></div>
-        <div class="zone" style="height:100px;"></div>
-        <div class="zone" style="height:100px;"></div>
-        <div class="zone" style="height:100px;"></div>
-        <div class="zone" style="height:100px;"></div>
-    </div>
 
-    <div style="display:flex; flex-direction:column; justify-content:space-around; align-items:center;">
-        <div class="zone" style="width:130px; height:180px; border-color:#ffcb05;" data-label="Active"></div>
-        <div style="display:flex; gap:10px;">
-            <div class="zone" style="width:90px; height:120px;"></div>
-            <div class="zone" style="width:90px; height:120px;"></div>
-            <div class="zone" style="width:90px; height:120px;"></div>
-            <div class="zone" style="width:90px; height:120px;"></div>
-            <div class="zone" style="width:90px; height:120px;"></div>
+    <!-- 對手 -->
+    <div id="opponent-active" class="zone big"></div>
+
+    <!-- 玩家 -->
+    <div class="player-area">
+        <div class="zone big dropzone" data-zone="active"></div>
+        <div class="bench">
+            <div class="zone dropzone" data-zone="bench"></div>
+            <div class="zone dropzone" data-zone="bench"></div>
+            <div class="zone dropzone" data-zone="bench"></div>
         </div>
     </div>
 
-    <div class="deck-area">
-        <div class="zone" style="height:110px; margin-bottom:20px;" data-label="Discard"></div>
-        <div class="card-stack" id="deck-visual">
-            </div>
-    </div>
+    <!-- 牌庫 -->
+    <div id="deck-visual" class="deck"></div>
+
 </div>
 
-<div class="hand-fan" id="hand-fan"></div>
+<div id="hand" class="hand"></div>
 
-<script>
-    // 根據你的清單數據
-    const cardPool = [
-        { name: "Dragapult ex", img: "https://images.pokemontcg.io/sv6/130_hires.png" },
-        { name: "Drakloak", img: "https://images.pokemontcg.io/sv6/129_hires.png" },
-        { name: "Dreepy", img: "https://images.pokemontcg.io/sv6/128_hires.png" },
-        { name: "Latias ex", img: "https://images.pokemontcg.io/sv7s/76_hires.png" }
-    ];
+<div id="log" class="log"></div>
 
-    let deck = [];
-    let hand = [];
-    let isShuffling = false;
-
-    function initGame() {
-        deck = [];
-        for(let i=0; i<60; i++) {
-            const type = cardPool[i % cardPool.length];
-            deck.push({...type, id: i});
-        }
-        renderDeck();
-    }
-
-    // 🌀 核心洗牌動畫：分疊交錯
-    function startShuffle() {
-        if(isShuffling) return;
-        isShuffling = true;
-        const visual = document.getElementById('deck-visual');
-        const cards = visual.querySelectorAll('.card');
-        
-        cards.forEach((card, i) => {
-            card.classList.add(i % 2 === 0 ? 'shuffling-l' : 'shuffling-r');
-        });
-
-        setTimeout(() => {
-            deck.sort(() => Math.random() - 0.5);
-            cards.forEach(card => card.classList.remove('shuffling-l', 'shuffling-r'));
-            isShuffling = false;
-            renderDeck();
-        }, 1200);
-    }
-
-    function renderDeck() {
-        const visual = document.getElementById('deck-visual');
-        visual.innerHTML = "";
-        const showCount = Math.min(deck.length, 12);
-        for(let i=0; i<showCount; i++) {
-            const c = document.createElement('div');
-            c.className = "card back";
-            c.style.bottom = (i * 2) + "px";
-            c.style.right = (i * 1) + "px";
-            visual.appendChild(c);
-        }
-        document.getElementById('deck-count').innerText = deck.length;
-    }
-
-    // 📥 抽牌：從牌庫彈出並旋轉進入扇形手牌
-    function drawCard() {
-        if(deck.length === 0) return;
-        const cardData = deck.shift();
-        hand.push(cardData);
-        updateHandUI();
-        renderDeck();
-    }
-
-    function updateHandUI() {
-        const container = document.getElementById('hand-fan');
-        container.innerHTML = "";
-        const total = hand.length;
-        hand.forEach((card, i) => {
-            const c = document.createElement('div');
-            c.className = "card hand-card";
-            c.style.backgroundImage = `url(${card.img})`;
-            // 扇形算法：計算旋轉角度與位移
-            const angle = (i - (total - 1) / 2) * 8; 
-            const yOffset = Math.abs(i - (total - 1) / 2) * 5;
-            c.style.transform = `rotate(${angle}deg) translateY(${yOffset}px)`;
-            container.appendChild(c);
-        });
-    }
-
-    initGame();
-</script>
+<script src="main.js"></script>
 </body>
 </html>
