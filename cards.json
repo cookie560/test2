@@ -1,0 +1,4 @@
+[
+  { "id": 1, "name": "皮卡丘", "type": "電", "image": "pikachu.png" },
+  { "id": 2, "name": "噴火龍", "type": "火", "image": "charizard.png" }
+]
