@@ -2,146 +2,162 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>PTCG Live Simulator - Dragapult ex</title>
+    <title>PTCG Pro Simulator - Dragapult Setup</title>
     <style>
         :root {
-            --live-blue: #00d2ff;
-            --live-gold: #ffcb05;
+            --mat-green: #1a4d1a;
+            --ptcg-blue: #1976d2;
+            --ptcg-gold: #ffcb05;
             --card-w: 80px;
             --card-h: 112px;
         }
 
         body {
-            margin: 0; background: #000; color: white;
-            font-family: 'Exo 2', sans-serif; overflow: hidden; height: 100vh;
+            margin: 0; background: #0f0f0f; color: white;
+            font-family: 'Exo 2', 'PingFang TC', sans-serif;
+            overflow: hidden; height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
         }
 
-        /* --- 頂部 HUD --- */
+        /* 頂部 HUD */
         .top-hud {
-            position: fixed; top: 0; width: 100%; height: 60px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-            display: flex; justify-content: space-around; align-items: center; z-index: 100;
+            width: 100%; height: 60px; background: #1a1a1a;
+            display: flex; justify-content: space-around; align-items: center;
+            border-bottom: 2px solid var(--ptcg-gold); z-index: 100;
         }
-        .hp-display { font-size: 24px; font-weight: 900; color: var(--live-gold); }
+        .hp-display { font-size: 24px; font-weight: 900; color: var(--ptcg-gold); }
 
-        /* --- 右側控制台 (不擋手牌) --- */
-        .side-controls {
-            position: fixed; right: 20px; bottom: 180px; 
-            display: flex; flex-direction: column; gap: 15px; z-index: 100;
-        }
-
-        /* --- 3D 戰場 --- */
+        /* 3D 對戰桌墊 */
         .arena {
-            perspective: 1500px; width: 100%; height: 100vh;
+            perspective: 1500px; width: 100%; flex: 1;
             background: radial-gradient(circle at center, #152515 0%, #000 100%);
             display: flex; justify-content: center; align-items: center;
         }
         .board-3d {
-            width: 1000px; height: 550px; transform: rotateX(22deg) translateY(-20px);
+            width: 1000px; height: 550px; transform: rotateX(20deg) translateY(-20px);
             transform-style: preserve-3d; display: grid;
             grid-template-columns: 160px 1fr 160px; gap: 20px;
         }
 
-        .slot {
-            border: 2px solid rgba(255,255,255,0.1); border-radius: 10px;
-            background: rgba(255,255,255,0.03); position: relative;
-            display: flex; align-items: center; justify-content: center; transition: 0.3s;
+        .zone {
+            border: 2px dashed rgba(255,255,255,0.2); border-radius: 10px;
+            background: rgba(0,0,0,0.1); position: relative;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: 0.3s;
         }
-        .slot.active-vibe { border-color: var(--live-blue); box-shadow: 0 0 15px rgba(0,210,255,0.2); }
-        .slot.hover { background: rgba(0, 210, 255, 0.15); border-color: var(--live-blue); }
+        .zone.hover { background: rgba(0, 210, 255, 0.15); border-color: #00d2ff; }
 
-        /* --- 卡牌實體 --- */
-        .card-entity {
-            width: var(--card-w); height: var(--card-h); cursor: grab;
-            border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.7);
-            background-size: cover; position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        /* --- 核心卡牌物件 (3D 翻轉結構) --- */
+        .card-container {
+            width: var(--card-w); height: var(--card-h);
+            perspective: 1000px; position: absolute;
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
         }
-        .energy-count {
-            position: absolute; top: -8px; right: -8px; width: 22px; height: 22px;
-            background: radial-gradient(circle, #ff6a00, #ee0979); border: 2px solid white;
-            border-radius: 50%; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center;
+        .card-inner {
+            position: relative; width: 100%; height: 100%;
+            transform-style: preserve-3d; transition: transform 0.6s;
+        }
+        .card-front, .card-back {
+            position: absolute; width: 100%; height: 100%;
+            border-radius: 6px; border: 2px solid white; backface-visibility: hidden;
+            background-size: cover; background-position: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        }
+        .card-front { transform: rotateY(180deg); }
+        /* 官方牌背素材 */
+        .card-back { background-image: url('https://upload.wikimedia.org/wikipedia/en/thumb/3/3b/Pokemon_Trading_Card_Game_cardback.jpg/220px-Pokemon_Trading_Card_Game_cardback.jpg'); }
+
+        /* 能量計數球 */
+        .energy-counter {
+            position: absolute; top: -10px; right: -10px; width: 24px; height: 24px;
+            background: radial-gradient(circle, #ff6a00, #ee0979);
+            border: 2px solid white; border-radius: 50%; font-size: 12px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 10px #ff6a00;
         }
 
-        /* 🌀 物理洗牌動畫 (核心回歸) */
+        /* 🌀 洗牌動畫 (核心回歸) */
         @keyframes riffle-l { 0%,100% {transform:translate(0,0)} 50% {transform:translate(-100px, -15px) rotate(-15deg)} }
         @keyframes riffle-r { 0%,100% {transform:translate(0,0)} 50% {transform:translate(100px, 15px) rotate(15deg)} }
         .shf-l { animation: riffle-l 0.4s infinite; }
         .shf-r { animation: riffle-r 0.4s infinite; }
 
-        /* --- 手牌區 (優化後的層級與位置) --- */
+        /* 手牌區 */
         .hand-dock {
-            position: fixed; bottom: -10px; width: 100%; height: 160px;
-            display: flex; justify-content: center; align-items: flex-end;
-            z-index: 200; pointer-events: none; /* 穿透至背景但子元素可互動 */
+            position: fixed; bottom: -20px; width: 100%; height: 160px;
+            display: flex; justify-content: center; align-items: flex-end; z-index: 200;
         }
-        .hand-card { 
-            margin-left: -35px; transition: 0.3s cubic-bezier(0.2, 1, 0.3, 1); 
-            transform-origin: bottom center; pointer-events: auto;
-        }
-        .hand-card:hover { transform: translateY(-70px) scale(1.3) !important; z-index: 500; }
+        .hand-item { margin-left: -30px; transition: 0.3s; transform-origin: bottom center; cursor: grab; }
+        .hand-item:hover { transform: translateY(-50px) scale(1.15) !important; z-index: 100; }
 
-        .btn-live {
-            background: linear-gradient(135deg, #00d2ff, #3a7bd5);
-            border: none; padding: 12px 25px; border-radius: 8px;
-            color: white; font-weight: bold; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,210,255,0.3);
+        /* 右側控制台 */
+        .side-panel {
+            position: fixed; right: 20px; bottom: 180px;
+            display: flex; flex-direction: column; gap: 10px; z-index: 100;
         }
-        .btn-live:active { transform: scale(0.95); }
-
-        .log { position: fixed; left: 20px; bottom: 20px; width: 180px; font-size: 11px; color: #666; pointer-events: none; }
+        .btn {
+            background: var(--ptcg-gold); border: none; padding: 10px 20px;
+            border-radius: 5px; font-weight: bold; cursor: pointer;
+        }
     </style>
 </head>
 <body>
 
 <div class="top-hud">
     <div class="hp-display">OPP: <span id="opp-hp">320</span></div>
-    <div style="font-weight: 100; opacity: 0.5;">DRAGAPULT EX SIMULATOR</div>
+    <div style="background: #333; padding: 5px 15px; border-radius: 5px;">YOUR TURN</div>
     <div class="hp-display">YOU: <span id="play-hp">320</span></div>
 </div>
 
-<div class="side-controls">
-    <button class="btn-live" style="background: #333;" onclick="startShuffle()">🌀 SHUFFLE</button>
-    <button class="btn-live" onclick="draw()">📥 DRAW</button>
-    <button class="btn-live" style="background: #f44;" onclick="attack()">⚔️ ATTACK</button>
+<div class="side-panel">
+    <button class="btn" style="background: #444;" onclick="startShuffle()">🌀 SHUFFLE</button>
+    <button class="btn" onclick="draw()">📥 DRAW</button>
+    <button class="btn" style="background: #f44;" onclick="attack()">⚔️ ATTACK</button>
 </div>
 
 <div class="arena">
     <div class="board-3d">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:10px;">
-            <div class="slot" style="height:70px;"></div><div class="slot" style="height:70px;"></div>
-            <div class="slot" style="height:70px;"></div><div class="slot" style="height:70px;"></div>
-            <div class="slot" style="height:70px;"></div><div class="slot" style="height:70px;"></div>
+            <div class="slot"><div class="card-back" style="width:70px; height:98px; border-radius:5px;"></div></div>
+            <div class="slot"><div class="card-back" style="width:70px; height:98px; border-radius:5px;"></div></div>
+            <div class="slot"><div class="card-back" style="width:70px; height:98px; border-radius:5px;"></div></div>
+            <div class="slot"><div class="card-back" style="width:70px; height:98px; border-radius:5px;"></div></div>
+            <div class="slot"><div class="card-back" style="width:70px; height:98px; border-radius:5px;"></div></div>
+            <div class="slot"><div class="card-back" style="width:70px; height:98px; border-radius:5px;"></div></div>
         </div>
 
         <div style="display:flex; flex-direction:column; align-items:center; justify-content:space-between;">
-            <div id="o-active" class="slot active-vibe" style="width:120px; height:168px;"></div>
+            <div id="o-active" class="slot" style="width:130px; height:182px; border-color:var(--ptcg-gold);"></div>
             
-            <div id="p-active" class="slot active-vibe" style="width:120px; height:168px;" 
-                 ondragover="over(event)" ondrop="drop(event, 'active')"></div>
+            <div id="p-active" class="zone" style="width:130px; height:182px; border-color:var(--ptcg-gold);" 
+                 ondragover="over(event)" ondrop="drop(event, 'active')">
+                 <span style="font-size:10px; color:#555;">ACTIVE SPOT</span>
+            </div>
             
-            <div style="display:flex; gap:8px; height:105px;">
-                <div class="slot" style="width:75px;" ondragover="over(event)" ondrop="drop(event, 'bench', 0)"></div>
-                <div class="slot" style="width:75px;" ondragover="over(event)" ondrop="drop(event, 'bench', 1)"></div>
-                <div class="slot" style="width:75px;" ondragover="over(event)" ondrop="drop(event, 'bench', 2)"></div>
-                <div class="slot" style="width:75px;" ondragover="over(event)" ondrop="drop(event, 'bench', 3)"></div>
-                <div class="slot" style="width:75px;" ondragover="over(event)" ondrop="drop(event, 'bench', 4)"></div>
+            <div style="display:flex; gap:8px; height:110px;">
+                <div class="zone" style="width:80px;" ondragover="over(event)" ondrop="drop(event, 'bench', 0)"></div>
+                <div class="zone" style="width:80px;" ondragover="over(event)" ondrop="drop(event, 'bench', 1)"></div>
+                <div class="zone" style="width:80px;" ondragover="over(event)" ondrop="drop(event, 'bench', 2)"></div>
+                <div class="zone" style="width:80px;" ondragover="over(event)" ondrop="drop(event, 'bench', 3)"></div>
+                <div class="zone" style="width:80px;" ondragover="over(event)" ondrop="drop(event, 'bench', 4)"></div>
             </div>
         </div>
 
         <div style="display:flex; flex-direction:column; justify-content:flex-end; gap:15px; padding:10px;">
-            <div id="discard-slot" class="slot" style="height:120px;"></div>
-            <div id="deck-zone" style="position:relative; height:140px; cursor:pointer;" onclick="draw()">
-                <div id="deck-stack"></div>
+            <div id="discard-slot" class="zone" style="height:120px;"></div>
+            <div id="deck-zone" style="position:relative; height:160px; cursor:pointer;" onclick="draw()">
+                <div id="deck-visual"></div>
+                <div style="position:absolute; bottom:0; width:100%; text-align:center;">牌庫: <span id="deck-count">60</span></div>
             </div>
         </div>
     </div>
 </div>
 
 <div id="hand" class="hand-dock"></div>
-<div id="log" class="log"></div>
 
 <script>
-    const cardData = [
+    // 數據清單
+    const cardPool = [
         { name: "Dragapult ex", hp: 320, img: "https://images.pokemontcg.io/sv6/130_hires.png" },
         { name: "Drakloak", hp: 90, img: "https://images.pokemontcg.io/sv6/129_hires.png" },
         { name: "Dreepy", hp: 70, img: "https://images.pokemontcg.io/sv6/128_hires.png" }
@@ -149,16 +165,15 @@
 
     let state = {
         deck: [], hand: [], discard: [],
-        active: null, bench: [null, null, null, null, null],
-        oppHP: 320
+        active: null, bench: [null, null, null, null, null]
     };
 
     function init() {
-        for(let i=0; i<60; i++) state.deck.push({...cardData[i%3], id: Math.random(), energy: 0});
+        for(let i=0; i<60; i++) state.deck.push({...cardPool[i%3], id: Math.random(), energy: 0});
         renderDeck();
-        log("System Ready.");
     }
 
+    // 🌀 鎖定的物理洗牌動畫
     function startShuffle() {
         const cards = document.querySelectorAll('.d-card');
         cards.forEach((c, i) => c.classList.add(i % 2 === 0 ? 'shf-l' : 'shf-r'));
@@ -166,20 +181,20 @@
             state.deck.sort(() => Math.random() - 0.5);
             cards.forEach(c => c.classList.remove('shf-l', 'shf-r'));
             renderDeck();
-            log("Deck shuffled.");
         }, 1200);
     }
 
     function renderDeck() {
-        const stack = document.getElementById('deck-stack');
+        const stack = document.getElementById('deck-visual');
         stack.innerHTML = "";
-        for(let i=0; i<Math.min(state.deck.length, 10); i++) {
+        for(let i=0; i<Math.min(state.deck.length, 12); i++) {
             const d = document.createElement('div');
-            d.className = "card-entity d-card";
+            d.className = "card-back d-card";
             d.style.position = "absolute"; d.style.top = -i+"px"; d.style.left = i+"px";
-            d.style.backgroundImage = "url('https://limitlesstcg.s3.us-west-2.amazonaws.com/etc/pokemon-cardback.png')";
+            d.style.width = "75px"; d.style.height = "105px"; d.style.borderRadius = "5px"; d.style.border="1px solid white";
             stack.appendChild(d);
         }
+        document.getElementById('deck-count').innerText = state.deck.length;
     }
 
     function draw() {
@@ -193,16 +208,23 @@
         h.innerHTML = "";
         state.hand.forEach((card, i) => {
             const c = document.createElement('div');
-            c.className = "card-entity hand-card";
-            c.style.backgroundImage = `url(${card.img})`;
+            c.className = "card-container hand-item";
+            c.innerHTML = `<div class="card-inner" style="transform:rotateY(180deg)">
+                <div class="card-back"></div>
+                <div class="card-front" style="background-image:url(${card.img})"></div>
+            </div>`;
+            
+            // 啟用拖曳
             c.draggable = true;
             c.ondragstart = (e) => e.dataTransfer.setData("idx", i);
+            
             const rot = (i - (state.hand.length-1)/2) * 5;
             c.style.transform = `rotate(${rot}deg)`;
             h.appendChild(c);
         });
     }
 
+    // 🖱️ 核心拖放邏輯
     function over(e) { e.preventDefault(); e.currentTarget.classList.add('hover'); }
 
     function drop(e, target, bIdx) {
@@ -211,49 +233,47 @@
         const idx = e.dataTransfer.getData("idx");
         const card = state.hand[idx];
 
+        // 放置邏輯：若是寶可夢放置到戰鬥場
         if(target === 'active') {
-            if(state.active) state.discard.push(state.active);
+            if(state.active) state.discard.push(state.active); // 替換舊卡
             state.active = card;
         } else {
+            // 放置到備戰區
             if(state.bench[bIdx]) state.discard.push(state.bench[bIdx]);
             state.bench[bIdx] = card;
         }
         state.hand.splice(idx, 1);
-        renderBoard(); renderHand(); updateDiscard();
+        renderBoard(); renderHand(); updateDiscardUI();
     }
 
     function renderBoard() {
-        document.getElementById('p-active').innerHTML = state.active ? createCard(state.active) : "";
-        const bSlots = document.querySelectorAll('.board-3d div:nth-child(2) div:nth-child(3) .slot');
-        state.bench.forEach((c, i) => bSlots[i].innerHTML = c ? createCard(c) : "");
-        document.getElementById('play-hp').innerText = state.active ? state.active.hp : "320";
-        document.getElementById('o-active').innerHTML = createCard({img: cardData[0].img, energy: 2});
+        const pA = document.getElementById('p-active');
+        pA.innerHTML = state.active ? createCardHTML(state.active) : '<span style="font-size:10px; color:#555;">ACTIVE SPOT</span>';
+        
+        const bSlots = document.querySelectorAll('.arena div:nth-child(2) div:nth-child(3) .zone');
+        state.bench.forEach((c, i) => {
+            bSlots[i].innerHTML = c ? createCardHTML(c, true) : "";
+        });
+
+        // 模擬對手
+        document.getElementById('o-active').innerHTML = createCardHTML({img: cardData[0].img, hp: 320, energy: 2});
     }
 
-    function createCard(c) {
-        return `<div class="card-entity" style="background-image:url(${c.img}); width:100%; height:100%;">
-            <div class="energy-count">${c.energy || 0}</div>
+    function createCardHTML(c, isBench=false) {
+        return `<div class="card-front" style="background-image:url(${c.img}); width:100%; height:100%; position:static; transform:none;">
+            <div class="energy-counter">${c.energy || 0}</div>
         </div>`;
     }
 
-    function updateDiscard() {
+    function updateDiscardUI() {
         if(state.discard.length > 0) {
             const top = state.discard[state.discard.length-1];
-            document.getElementById('discard-slot').innerHTML = `<div class="card-entity" style="background-image:url(${top.img}); width:100%; height:100%; opacity:0.4; filter:grayscale(1);"></div>`;
+            document.getElementById('discard-slot').innerHTML = `<div class="card-back" style="width:100%; height:100%; opacity:0.5; filter:grayscale(1);"></div>`;
         }
     }
 
     function attack() {
-        if(!state.active) return;
-        state.oppHP -= 50;
-        document.getElementById('opp-hp').innerText = state.oppHP;
-        log("Attack! -50HP");
-    }
-
-    function log(m) {
-        const b = document.getElementById('log');
-        b.innerHTML += `<div>> ${m}</div>`;
-        b.scrollTop = b.scrollHeight;
+        alert("Phantom Dive! Deals 200 damage.");
     }
 
     init();
