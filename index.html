@@ -2,271 +2,216 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>PTCG Ultimate - Interaction Pro</title>
+    <title>PTCG Elite - Final Fix</title>
     <style>
         :root {
             --ptcg-blue: #1b3664;
             --ptcg-gold: #ffcb05;
             --live-blue: #00d2ff;
             --energy-color: #ff4ed2;
-            --card-w: 80px;
-            --card-h: 112px;
+            --card-w: 85px;
+            --card-h: 119px;
         }
 
-        body {
-            margin: 0; background: #000; color: white;
-            font-family: 'Exo 2', sans-serif; overflow: hidden; height: 100vh;
-        }
+        body { margin: 0; background: #000; color: white; font-family: sans-serif; overflow: hidden; }
 
-        /* --- 3D 舞台 --- */
-        .arena { perspective: 1500px; width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #1a2a1a 0%, #000 100%); }
-        .board-3d { width: 1150px; height: 650px; transform: rotateX(20deg); transform-style: preserve-3d; display: grid; grid-template-columns: 200px 1fr 200px; gap: 30px; }
-        
-        /* --- 物理洗牌 --- */
-        @keyframes riffle-l { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-100px,-20px) rotate(-15deg)} }
-        @keyframes riffle-r { 0%,100%{transform:translate(0,0)} 50%{transform:translate(100px,20px) rotate(15deg)} }
-        .shf-l { animation: riffle-l 0.4s infinite !important; }
-        .shf-r { animation: riffle-r 0.4s infinite !important; }
+        /* 3D 舞台 */
+        .arena { perspective: 1200px; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #1a2a1a 0%, #000 100%); }
+        .board-3d { width: 1000px; height: 600px; transform: rotateX(15deg); display: grid; grid-template-columns: 180px 1fr 180px; gap: 20px; }
 
-        /* --- 填能流光 --- */
-        @keyframes energy-fly {
-            0% { transform: scale(1); opacity: 1; filter: blur(0px); }
-            100% { transform: translate(var(--tx), var(--ty)) scale(2); opacity: 0; filter: blur(5px); }
-        }
-        .energy-particle { position: fixed; width: 22px; height: 22px; background: var(--energy-color); border-radius: 50%; box-shadow: 0 0 25px var(--energy-color); z-index: 2000; pointer-events: none; }
-
-        /* --- 擴張感應區域 (核心優化) --- */
+        /* 區域與格子 */
         .slot { 
-            border: 2.5px solid rgba(255,255,255,0.08); border-radius: 14px; 
-            background: rgba(255,255,255,0.015); display: flex; align-items: center; 
-            justify-content: center; position: relative; transition: 0.25s; 
-            box-sizing: border-box;
+            border: 2px dashed rgba(255,255,255,0.2); border-radius: 10px; 
+            background: rgba(255,255,255,0.02); display: flex; align-items: center; 
+            justify-content: center; position: relative; transition: 0.2s;
         }
-        
-        /* 增加 Active 區的視覺引導與感應範圍 */
-        .slot.active-vibe { 
-            width: 170px; height: 230px; /* 加大視覺格子 */
-            border-color: rgba(0, 210, 255, 0.3); 
-            box-shadow: 0 0 40px rgba(0,210,255,0.05);
-        }
-        
-        /* 備戰區加大間距與寬度 */
-        .bench-container { display: flex; gap: 15px; height: 140px; margin-top: 10px; }
-        .bench-slot { width: 100px; height: 135px; }
+        .slot.hover { border-color: var(--ptcg-gold); background: rgba(255,203,5,0.1); transform: scale(1.05); }
 
-        .slot.hover { 
-            border-color: var(--ptcg-gold); 
-            background: rgba(255,203,5,0.15); 
-            transform: scale(1.05); /* 拖過時輕微放大提示 */
-        }
+        .active-area { width: 160px; height: 220px; border-style: solid; border-color: var(--live-blue); }
+        .bench-container { display: flex; gap: 10px; margin-top: 30px; justify-content: center; }
+        .bench-slot { width: 100px; height: 140px; }
 
-        /* --- 特效 --- */
-        @keyframes evolve-glow { 0%, 100% { box-shadow: 0 0 0px #fff; } 50% { box-shadow: 0 0 40px var(--ptcg-gold); } }
-        .evolve-anim { animation: evolve-glow 0.8s ease-out; }
-        @keyframes shake-anim { 0%, 100% { transform: rotateX(20deg) translate(0,0); } 25% { transform: rotateX(20deg) translate(10px, 10px); } 75% { transform: rotateX(20deg) translate(-10px, -10px); } }
-        .shake { animation: shake-anim 0.3s ease-in-out; }
+        /* 卡牌外觀 */
+        .card-entity { width: 100%; height: 100%; border-radius: 8px; border: 2px solid white; background-size: cover; position: relative; pointer-events: none; box-shadow: 0 4px 8px #000; }
+        .hand-card { width: var(--card-w); height: var(--card-h); cursor: grab; pointer-events: all !important; transition: 0.3s; margin-left: -30px; }
+        .hand-card:hover { transform: translateY(-80px) scale(1.4) !important; z-index: 100; }
 
-        /* --- 卡牌基礎 --- */
-        .card-entity { width: var(--card-w); height: var(--card-h); border-radius: 8px; border: 2.5px solid white; background-size: cover; position: relative; transition: 0.3s; z-index: 5; }
-        .pokemon-back { width: 100%; height: 100%; background: var(--ptcg-blue); border: 2px solid #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 10px #000; }
-        
-        /* --- UI --- */
-        .hand { position: fixed; bottom: -10px; width: 100%; height: 160px; display: flex; justify-content: center; align-items: flex-end; z-index: 1000; }
-        .hand-card { margin-left: -40px; transform-origin: bottom center; cursor: grab; }
-        .hand-card:hover { transform: translateY(-90px) scale(1.5) rotate(0deg) !important; z-index: 1100; cursor: pointer; }
+        /* 動畫 */
+        @keyframes energy-fly { 0% { opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(2); opacity: 0; } }
+        .energy-particle { position: fixed; width: 20px; height: 20px; background: var(--energy-color); border-radius: 50%; box-shadow: 0 0 15px var(--energy-color); z-index: 2000; pointer-events: none; }
+        @keyframes riffle { 0%,100%{transform:translate(0,0)} 50%{transform:translate(50px,-20px)} }
+        .shuffling { animation: riffle 0.3s infinite; }
 
-        .battle-log { position: fixed; left: 25px; bottom: 25px; width: 240px; height: 160px; background: rgba(0,0,0,0.75); border: 1px solid #333; border-radius: 10px; padding: 12px; font-size: 12px; color: #eee; overflow-y: auto; pointer-events: none; border-left: 4px solid var(--live-blue); }
-        .side-menu { position: fixed; right: 25px; bottom: 180px; display: flex; flex-direction: column; gap: 12px; }
-        .btn { background: #1a1a1a; color: white; border: 1.5px solid #444; padding: 14px 24px; border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn:hover { border-color: var(--live-blue); background: #222; transform: scale(1.05); }
-
-        .energy-count { position: absolute; top: -14px; right: -14px; width: 32px; height: 32px; background: radial-gradient(circle, #ff4ed2, #8e2de2); border: 2.5px solid #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        /* UI */
+        .hand { position: fixed; bottom: 20px; width: 100%; display: flex; justify-content: center; height: 150px; }
+        .log { position: fixed; left: 20px; bottom: 20px; width: 200px; height: 120px; background: rgba(0,0,0,0.7); padding: 10px; font-size: 11px; overflow-y: auto; border-radius: 8px; pointer-events: none; }
+        .side-btns { position: fixed; right: 20px; bottom: 180px; display: flex; flex-direction: column; gap: 10px; }
+        .btn { background: #222; color: #fff; border: 1px solid #555; padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .energy-badge { position: absolute; top: -10px; right: -10px; background: var(--energy-color); border: 2px solid #fff; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
     </style>
 </head>
 <body>
 
 <div class="arena">
-    <div id="board" class="board-3d">
-        <div id="prize-zone" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:20px;"></div>
+    <div id="main-board" class="board-3d">
+        <div id="prize-zone" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:10px;"></div>
 
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:space-between;">
-            <div id="opp-active" class="slot active-vibe" style="border-color:rgba(255,255,255,0.1);"></div>
-            
-            <div id="p-active" class="slot active-vibe" 
-                 ondragover="over(event)" ondragleave="leave(event)" ondrop="handleDrop(event, 'active')">
-                 <span style="position:absolute; bottom:15px; font-size:12px; opacity:0.3; font-weight:bold;">ACTIVE SPOT</span>
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+            <div id="active-slot" class="slot active-area" 
+                 ondragover="allowDrop(event)" ondragleave="leaveSlot(event)" ondrop="handleDrop(event, 'active', 0)">
+                <div class="content" style="width:120px; height:168px;"></div>
             </div>
-            
-            <div id="bench" class="bench-container">
-                <div class="slot bench-slot" ondragover="over(event)" ondragleave="leave(event)" ondrop="handleDrop(event, 'bench', 0)"></div>
-                <div class="slot bench-slot" ondragover="over(event)" ondragleave="leave(event)" ondrop="handleDrop(event, 'bench', 1)"></div>
-                <div class="slot bench-slot" ondragover="over(event)" ondragleave="leave(event)" ondrop="handleDrop(event, 'bench', 2)"></div>
-                <div class="slot bench-slot" ondragover="over(event)" ondragleave="leave(event)" ondrop="handleDrop(event, 'bench', 3)"></div>
-                <div class="slot bench-slot" ondragover="over(event)" ondragleave="leave(event)" ondrop="handleDrop(event, 'bench', 4)"></div>
+
+            <div class="bench-container">
+                <div id="bench-0" class="slot bench-slot" ondragover="allowDrop(event)" ondragleave="leaveSlot(event)" ondrop="handleDrop(event, 'bench', 0)"></div>
+                <div id="bench-1" class="slot bench-slot" ondragover="allowDrop(event)" ondragleave="leaveSlot(event)" ondrop="handleDrop(event, 'bench', 1)"></div>
+                <div id="bench-2" class="slot bench-slot" ondragover="allowDrop(event)" ondragleave="leaveSlot(event)" ondrop="handleDrop(event, 'bench', 2)"></div>
+                <div id="bench-3" class="slot bench-slot" ondragover="allowDrop(event)" ondragleave="leaveSlot(event)" ondrop="handleDrop(event, 'bench', 3)"></div>
+                <div id="bench-4" class="slot bench-slot" ondragover="allowDrop(event)" ondragleave="leaveSlot(event)" ondrop="handleDrop(event, 'bench', 4)"></div>
             </div>
         </div>
 
-        <div style="display:flex; flex-direction:column; justify-content:flex-end; gap:25px; padding:20px;">
-            <div class="slot" style="height:150px; opacity:0.2;">DISCARD</div>
-            <div id="deck-area" style="position:relative; height:160px; cursor:pointer;" onclick="drawCard()">
-                <div id="deck-visual-stack"></div>
-                <div style="text-align:center; color:var(--ptcg-gold); margin-top:10px; font-weight:bold; font-size:13px;">DECK: <span id="deck-count">60</span></div>
-            </div>
+        <div style="display:flex; flex-direction:column; justify-content:flex-end; padding:20px;">
+            <div id="deck-stack" style="position:relative; height:150px; cursor:pointer;" onclick="drawCard()"></div>
         </div>
     </div>
 </div>
 
-<div class="battle-log" id="log"></div>
-
-<div class="side-menu">
-    <button class="btn" style="background:#333;" onclick="shuffleDeck()">🌀 SHUFFLE</button>
-    <button id="energy-btn" class="btn" style="color:var(--energy-color)" onclick="attachEnergyAnimation()">🔋 ATTACH ENERGY</button>
-    <button class="btn" style="background:linear-gradient(to bottom, #d00, #800); border:none;" onclick="attack()">⚔️ ATTACK</button>
+<div class="log" id="game-log"></div>
+<div class="side-btns">
+    <button class="btn" onclick="shuffle()">🌀 SHUFFLE</button>
+    <button id="e-btn" class="btn" style="color:var(--energy-color)" onclick="doEnergyAnim()">🔋 ENERGY</button>
+    <button class="btn" style="background:#600;" onclick="attack()">⚔️ ATTACK</button>
 </div>
-
-<div id="hand" class="hand"></div>
+<div id="player-hand" class="hand"></div>
 
 <script>
-    const CARD_DATA = [
+    const CARDS = [
         { name: "Dragapult ex", stage: 2, hp: 320, img: "https://images.pokemontcg.io/sv6/130_hires.png" },
         { name: "Drakloak", stage: 1, hp: 90, img: "https://images.pokemontcg.io/sv6/129_hires.png" },
         { name: "Dreepy", stage: 0, hp: 70, img: "https://images.pokemontcg.io/sv6/128_hires.png" }
     ];
 
-    let state = { deck: [], hand: [], prizes: 6, active: null, bench: [null,null,null,null,null], oppHp: 320 };
+    let state = { deck: [], hand: [], active: null, bench: [null,null,null,null,null], prizes: 6, oppHp: 320 };
 
     function init() {
-        for(let i=0; i<60; i++) state.deck.push({...CARD_DATA[i%3], id: Math.random(), energy: 0});
-        state.deck.sort(() => Math.random() - 0.5);
-        renderPrizes(); updateDeckUI();
+        for(let i=0; i<60; i++) state.deck.push({...CARDS[i%3], id: Math.random()});
+        state.deck.sort(()=>Math.random()-0.5);
         for(let i=0; i<7; i++) state.hand.push(state.deck.shift());
-        renderHand(); renderBoard();
-        addLog("Game setup complete. Battle on!");
+        renderAll();
+        addLog("Game Ready. Bench Fixed.");
     }
 
-    function shuffleDeck() {
-        const cards = document.querySelectorAll('.d-stack-card');
-        cards.forEach((c, i) => c.classList.add(i % 2 === 0 ? 'shf-l' : 'shf-r'));
-        addLog("Shuffling your deck...");
-        setTimeout(() => {
-            state.deck.sort(() => Math.random() - 0.5);
-            cards.forEach(c => c.classList.remove('shf-l', 'shf-r'));
-            updateDeckUI();
-            addLog("Deck ready.");
-        }, 1200);
-    }
+    // 核心拖放邏輯
+    function allowDrop(e) { e.preventDefault(); e.currentTarget.classList.add('hover'); }
+    function leaveSlot(e) { e.currentTarget.classList.remove('hover'); }
 
-    function drawCard() {
-        if(state.deck.length > 0) {
-            state.hand.push(state.deck.shift());
-            renderHand(); updateDeckUI();
-            addLog("Drew a card.");
-        }
-    }
+    function handleDrop(e, type, index) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('hover');
+        const handIdx = e.dataTransfer.getData("text");
+        if(handIdx === "") return;
 
-    function attachEnergyAnimation() {
-        if(!state.active) return addLog("No Active Pokémon to energy up!");
-        const btn = document.getElementById('energy-btn');
-        const activeSlot = document.getElementById('p-active');
-        const bRect = btn.getBoundingClientRect();
-        const aRect = activeSlot.getBoundingClientRect();
-
-        const particle = document.createElement('div');
-        particle.className = "energy-particle";
-        particle.style.left = bRect.left + "px";
-        particle.style.top = bRect.top + "px";
+        const card = state.hand[parseInt(handIdx)];
         
-        particle.style.setProperty('--tx', (aRect.left - bRect.left + 75) + "px");
-        particle.style.setProperty('--ty', (aRect.top - bRect.top + 100) + "px");
-        particle.style.animation = "energy-fly 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards";
-        
-        document.body.appendChild(particle);
-        setTimeout(() => {
-            particle.remove();
-            state.active.energy++;
-            renderBoard();
-            addLog("Energy attached.");
-        }, 600);
-    }
-
-    function handleDrop(e, target, bIdx) {
-        e.preventDefault(); e.currentTarget.classList.remove('hover');
-        const idx = e.dataTransfer.getData("idx");
-        const newCard = state.hand[idx];
-        let current = (target === 'active') ? state.active : state.bench[bIdx];
-
-        if (current && newCard.stage > current.stage) {
-            addLog(`Evolution! ${current.name} evolved into ${newCard.name}`);
-            const evolved = { ...newCard, energy: current.energy, currentHp: newCard.hp };
-            if(target === 'active') state.active = evolved; else state.bench[bIdx] = evolved;
-            e.currentTarget.classList.add('evolve-anim');
-            setTimeout(() => e.currentTarget.classList.remove('evolve-anim'), 800);
-        } else {
-            const cardObj = { ...newCard, currentHp: newCard.hp, energy: 0 };
-            if(target === 'active') state.active = cardObj; else state.bench[bIdx] = cardObj;
-            addLog(`Played ${newCard.name} to ${target}.`);
-        }
-        state.hand.splice(idx, 1);
-        renderHand(); renderBoard();
-    }
-
-    function attack() {
-        if(!state.active || state.active.energy < 2) return addLog("Need 2 Energy to attack!");
-        document.getElementById('board').classList.add('shake');
-        state.oppHp -= 200;
-        addLog("Phantom Dive! Dealt 200 damage.");
-        setTimeout(() => {
-            document.getElementById('board').classList.remove('shake');
-            if(state.oppHp <= 0) {
-                state.oppHp = 320; state.prizes--;
-                renderPrizes(); addLog("Knock Out! Prize taken.");
+        if(type === 'active') {
+            if(state.active && card.stage > state.active.stage) {
+                state.active = { ...card, energy: state.active.energy, curHp: card.hp };
+                addLog("Evolved Active!");
+            } else {
+                state.active = { ...card, energy: 0, curHp: card.hp };
+                addLog("Played to Active.");
             }
-            renderBoard();
-        }, 300);
+        } else {
+            const currentBench = state.bench[index];
+            if(currentBench && card.stage > currentBench.stage) {
+                state.bench[index] = { ...card, energy: currentBench.energy, curHp: card.hp };
+                addLog(`Evolved Bench ${index}!`);
+            } else {
+                state.bench[index] = { ...card, energy: 0, curHp: card.hp };
+                addLog(`Played to Bench ${index}.`);
+            }
+        }
+
+        state.hand.splice(handIdx, 1);
+        renderAll();
     }
 
-    function renderBoard() {
-        document.getElementById('p-active').innerHTML = state.active ? createCard(state.active, true) : `<span style="opacity:0.2">ACTIVE</span>`;
-        const slots = document.querySelectorAll('#bench .slot');
-        state.bench.forEach((c, i) => slots[i].innerHTML = c ? createCard(c, false) : "");
-        document.getElementById('opp-active').innerHTML = createCard({img: CARD_DATA[0].img, energy: 2, currentHp: state.oppHp, hp: 320}, true);
+    // 渲染函數
+    function renderAll() {
+        // 出戰位
+        const actCont = document.querySelector('#active-slot .content');
+        actCont.innerHTML = state.active ? createCardHTML(state.active) : "";
+
+        // 備戰位 (精確 ID 渲染)
+        state.bench.forEach((c, i) => {
+            const slot = document.getElementById(`bench-${i}`);
+            slot.innerHTML = c ? createCardHTML(c) : "";
+        });
+
+        // 手牌
+        const handDiv = document.getElementById('player-hand');
+        handDiv.innerHTML = "";
+        state.hand.forEach((c, i) => {
+            const div = document.createElement('div');
+            div.className = "card-entity hand-card";
+            div.style.backgroundImage = `url(${c.img})`;
+            div.draggable = true;
+            div.ondragstart = (e) => e.dataTransfer.setData("text", i);
+            handDiv.appendChild(div);
+        });
+
+        // 獎賞與牌組
+        const pz = document.getElementById('prize-zone');
+        pz.innerHTML = "";
+        for(let i=0; i<state.prizes; i++) pz.innerHTML += `<div class="slot" style="height:70px;"><div class="card-entity" style="background:#1b3664"></div></div>`;
+        
+        const ds = document.getElementById('deck-stack');
+        ds.innerHTML = "";
+        for(let i=0; i<Math.min(state.deck.length, 5); i++) ds.innerHTML += `<div class="card-entity" style="position:absolute; background:#1b3664; top:-${i*2}px; left:${i}px; width:80px; height:110px;"></div>`;
     }
 
-    function createCard(c, isActive) {
-        const size = isActive ? "width:115px; height:160px;" : "width:100%; height:100%;";
-        return `<div class="card-entity" style="background-image:url(${c.img}); ${size}">
-            <div class="energy-count">${c.energy || 0}</div>
-            <div style="position:absolute; bottom:-12px; width:100%; text-align:center; font-size:12px; background:rgba(0,0,0,0.85); font-weight:bold;">HP: ${c.currentHp || c.hp}</div>
+    function createCardHTML(c) {
+        return `<div class="card-entity" style="background-image:url(${c.img})">
+            <div class="energy-badge">${c.energy || 0}</div>
         </div>`;
     }
 
-    function updateDeckUI() {
-        const s = document.getElementById('deck-visual-stack'); s.innerHTML = "";
-        for(let i=0; i<Math.min(state.deck.length, 12); i++) {
-            s.innerHTML += `<div class="pokemon-back d-stack-card" style="position:absolute; width:80px; height:112px; top:-${i*1.5}px; left:${i*0.5}px; z-index:${i}"></div>`;
-        }
-        document.getElementById('deck-count').innerText = state.deck.length;
+    // 動畫與動作
+    function doEnergyAnim() {
+        if(!state.active) return;
+        const btn = document.getElementById('e-btn').getBoundingClientRect();
+        const target = document.getElementById('active-slot').getBoundingClientRect();
+        const p = document.createElement('div');
+        p.className = "energy-particle";
+        p.style.left = btn.left + "px"; p.style.top = btn.top + "px";
+        p.style.setProperty('--tx', (target.left - btn.left + 70) + "px");
+        p.style.setProperty('--ty', (target.top - btn.top + 100) + "px");
+        p.style.animation = "energy-fly 0.5s forwards";
+        document.body.appendChild(p);
+        setTimeout(() => { p.remove(); state.active.energy++; renderAll(); }, 500);
     }
 
-    function renderHand() {
-        const h = document.getElementById('hand'); h.innerHTML = "";
-        state.hand.forEach((c, i) => {
-            const el = document.createElement('div'); el.className = "card-entity hand-card";
-            el.style.backgroundImage = `url(${c.img})`; el.draggable = true;
-            el.ondragstart = (e) => e.dataTransfer.setData("idx", i);
-            el.style.transform = `rotate(${(i-(state.hand.length-1)/2)*5}deg)`;
-            h.appendChild(el);
-        });
+    function shuffle() {
+        const stack = document.getElementById('deck-stack');
+        stack.classList.add('shuffling');
+        setTimeout(() => { 
+            state.deck.sort(()=>Math.random()-0.5); 
+            stack.classList.remove('shuffling'); 
+            addLog("Shuffled.");
+        }, 1000);
     }
 
-    function renderPrizes() {
-        const z = document.getElementById('prize-zone'); z.innerHTML = "";
-        for(let i=0; i<state.prizes; i++) z.innerHTML += `<div class="slot" style="height:85px; width:65px;"><div class="pokemon-back"></div></div>`;
+    function drawCard() { if(state.deck.length > 0) { state.hand.push(state.deck.shift()); renderAll(); } }
+    
+    function attack() {
+        if(!state.active || state.active.energy < 2) return addLog("No Energy!");
+        state.oppHp -= 200;
+        if(state.oppHp <= 0) { state.oppHp = 320; state.prizes--; addLog("K.O.!"); }
+        renderAll();
     }
 
-    function addLog(m) { const l = document.getElementById('log'); l.innerHTML += `<div>> ${m}</div>`; l.scrollTop = l.scrollHeight; }
-    function over(e) { e.preventDefault(); e.currentTarget.classList.add('hover'); }
-    function leave(e) { e.currentTarget.classList.remove('hover'); }
+    function addLog(m) { const l = document.getElementById('game-log'); l.innerHTML += `<div>> ${m}</div>`; l.scrollTop = l.scrollHeight; }
 
     init();
 </script>
