@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>PTCG Pro - Full Combat System</title>
+    <title>PTCG Pro - Ultimate System</title>
     <style>
         :root {
             --ptcg-blue: #1b3664;
@@ -17,25 +17,27 @@
             font-family: 'Exo 2', sans-serif; overflow: hidden; height: 100vh;
         }
 
-        /* --- 3D 舞台與動畫 --- */
+        /* --- 3D 舞台與震動 --- */
         .arena { perspective: 1500px; width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #1a2a1a 0%, #000 100%); }
         .board-3d { width: 1100px; height: 600px; transform: rotateX(20deg); transform-style: preserve-3d; display: grid; grid-template-columns: 200px 1fr 200px; gap: 20px; transition: 0.3s; }
         .shake { animation: shake-anim 0.3s ease-in-out; }
-        @keyframes shake-anim { 0%, 100% { transform: rotateX(20deg) translate(0,0); } 25% { transform: rotateX(20deg) translate(10px, 10px); } 75% { transform: rotateX(20deg) translate(-10px, -10px); } }
+        @keyframes shake-anim { 0%, 100% { transform: rotateX(20deg) translate(0,0); } 25% { transform: rotateX(20deg) translate(8px, 8px); } 75% { transform: rotateX(20deg) translate(-8px, -8px); } }
+
+        /* --- 物理洗牌動畫 --- */
+        @keyframes riffle-l { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-100px,-20px) rotate(-15deg)} }
+        @keyframes riffle-r { 0%,100%{transform:translate(0,0)} 50%{transform:translate(100px,20px) rotate(15deg)} }
+        .shf-l { animation: riffle-l 0.4s infinite !important; }
+        .shf-r { animation: riffle-r 0.4s infinite !important; }
 
         /* --- 卡牌基礎 --- */
         .card-entity { width: var(--card-w); height: var(--card-h); cursor: grab; border-radius: 8px; border: 2.5px solid white; background-size: cover; position: relative; transition: 0.3s cubic-bezier(0.2, 1, 0.3, 1); box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
         .pokemon-back { width: 100%; height: 100%; background: var(--ptcg-blue); border: 2px solid #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 10px #000; }
-        .pokemon-back::after { content: ""; width: 40px; height: 40px; border: 2px solid var(--ptcg-gold); border-radius: 50%; opacity: 0.3; }
+        .pokemon-back::after { content: ""; width: 40px; height: 40px; border: 2px solid var(--ptcg-gold); border-radius: 50%; opacity: 0.2; }
 
-        /* --- 戰鬥區域 --- */
+        /* --- 區域設定 --- */
         .slot { border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; background: rgba(255,255,255,0.02); display: flex; align-items: center; justify-content: center; position: relative; }
         .slot.active-vibe { border-color: var(--live-blue); box-shadow: 0 0 20px rgba(0,210,255,0.1); }
         .slot.hover { border-color: var(--ptcg-gold); background: rgba(255,203,5,0.1); }
-
-        /* --- 進化特效 --- */
-        @keyframes evolve-glow { 0% { box-shadow: 0 0 0px #fff; } 50% { box-shadow: 0 0 30px var(--ptcg-gold); } 100% { box-shadow: 0 0 0px #fff; } }
-        .evolve-anim { animation: evolve-glow 0.8s ease-out; }
 
         /* --- 介面組件 --- */
         .hand { position: fixed; bottom: -10px; width: 100%; height: 160px; display: flex; justify-content: center; align-items: flex-end; z-index: 1000; }
@@ -46,13 +48,11 @@
         .log-entry { margin-bottom: 5px; border-left: 2px solid var(--live-blue); padding-left: 5px; }
 
         .side-menu { position: fixed; right: 20px; bottom: 180px; display: flex; flex-direction: column; gap: 10px; }
-        .btn { background: #222; color: white; border: 1px solid #555; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn:hover { background: #333; border-color: var(--live-blue); }
-
-        /* 棄牌區檢視器 */
-        #discard-viewer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: none; flex-wrap: wrap; padding: 50px; gap: 15px; overflow-y: auto; }
+        .btn { background: #222; color: white; border: 1px solid #555; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn:hover { background: #333; border-color: var(--live-blue); transform: scale(1.05); }
 
         .energy-dot { position: absolute; top: -10px; right: -10px; width: 26px; height: 26px; background: radial-gradient(circle, #ff6a00, #ee0979); border: 2px solid #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+        #discard-viewer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: none; flex-wrap: wrap; padding: 50px; gap: 15px; overflow-y: auto; }
     </style>
 </head>
 <body>
@@ -61,8 +61,7 @@
 
 <div class="arena">
     <div id="board" class="board-3d">
-        <div id="prize-zone" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:20px;">
-            </div>
+        <div id="prize-zone" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:20px;"></div>
 
         <div style="display:flex; flex-direction:column; align-items:center; justify-content:space-between;">
             <div id="opp-active" class="slot active-vibe" style="width:140px; height:190px;"></div>
@@ -81,10 +80,13 @@
 
         <div style="display:flex; flex-direction:column; justify-content:flex-end; gap:20px; padding:20px;">
             <div id="discard-slot" class="slot" style="height:140px; cursor:pointer;" onclick="openDiscard()">
-                <span style="font-size:10px; color:#555;">DISCARD (VIEW)</span>
+                <span style="font-size:10px; color:#555;">DISCARD</span>
             </div>
-            <div style="position:relative; height:150px; cursor:pointer;" onclick="drawCard()">
-                <div id="deck-stack"></div>
+            <div id="deck-area" style="position:relative; height:160px; cursor:pointer;" onclick="drawCard()">
+                <div id="deck-visual-stack"></div>
+                <div style="text-align:center; color:var(--ptcg-gold); margin-top:10px; font-weight:bold; font-size:12px;">
+                    DECK: <span id="deck-count">60</span>
+                </div>
             </div>
         </div>
     </div>
@@ -93,8 +95,9 @@
 <div class="battle-log" id="log"></div>
 
 <div class="side-menu">
-    <button class="btn" style="color:var(--live-blue)" onclick="addEnergy()">🔋 ATTACH ENERGY</button>
-    <button class="btn" style="background:#b00; border:none;" onclick="attack()">⚔️ PHANTOM DIVE</button>
+    <button class="btn" style="background:#444;" onclick="shuffleDeck()">🌀 SHUFFLE</button>
+    <button class="btn" style="color:var(--live-blue)" onclick="addEnergy()">🔋 ENERGY</button>
+    <button class="btn" style="background:#b00; border:none;" onclick="attack()">⚔️ ATTACK</button>
 </div>
 
 <div id="hand" class="hand"></div>
@@ -120,97 +123,52 @@
         for(let i=0; i<7; i++) state.hand.push(state.deck.shift());
         renderHand();
         renderBoard();
-        addLog("Battle Started! Draw 7 cards.");
+        addLog("Game Ready. 7 cards drawn.");
     }
 
+    // 🌀 物理洗牌功能
+    function shuffleDeck() {
+        const cards = document.querySelectorAll('.d-stack-card');
+        cards.forEach((c, i) => c.classList.add(i % 2 === 0 ? 'shf-l' : 'shf-r'));
+        addLog("Shuffling deck...");
+        setTimeout(() => {
+            state.deck.sort(() => Math.random() - 0.5);
+            cards.forEach(c => c.classList.remove('shf-l', 'shf-r'));
+            updateDeckUI();
+            addLog("Deck shuffled.");
+        }, 1200);
+    }
+
+    function updateDeckUI() {
+        const s = document.getElementById('deck-visual-stack');
+        s.innerHTML = "";
+        for(let i=0; i<Math.min(state.deck.length, 12); i++) {
+            const c = document.createElement('div');
+            c.className = "pokemon-back d-stack-card";
+            c.style.cssText = `position:absolute; width:80px; height:112px; top:-${i*1.5}px; left:${i*0.5}px; z-index:${i}; transition: 0.3s;`;
+            s.appendChild(c);
+        }
+        document.getElementById('deck-count').innerText = state.deck.length;
+    }
+
+    function drawCard() {
+        if(state.deck.length > 0) {
+            state.hand.push(state.deck.shift());
+            renderHand();
+            updateDeckUI();
+            addLog("Drew 1 card.");
+        }
+    }
+
+    // 獎賞與渲染
     function renderPrizes() {
         const zone = document.getElementById('prize-zone');
         zone.innerHTML = "";
         for(let i=0; i<state.prizes; i++) {
-            zone.innerHTML += `<div class="slot" style="height:80px;"><div class="pokemon-back"></div></div>`;
+            zone.innerHTML += `<div class="slot" style="height:85px;"><div class="pokemon-back"></div></div>`;
         }
     }
 
-    function handleDrop(e, target, bIdx) {
-        e.preventDefault();
-        e.currentTarget.classList.remove('hover');
-        const idx = e.dataTransfer.getData("idx");
-        const newCard = state.hand[idx];
-        let currentSlot = target === 'active' ? state.active : state.bench[bIdx];
-
-        // 進化邏輯
-        if (currentSlot && newCard.stage > currentSlot.stage) {
-            addLog(`Evolution! ${currentSlot.name} evolved into ${newCard.name}`);
-            const evolvedCard = { ...newCard, energy: currentSlot.energy, currentHp: newCard.hp };
-            if(target === 'active') state.active = evolvedCard;
-            else state.bench[bIdx] = evolvedCard;
-            e.currentTarget.classList.add('evolve-anim');
-            setTimeout(() => e.currentTarget.classList.remove('evolve-anim'), 800);
-        } else {
-            const cardObj = { ...newCard, currentHp: newCard.hp, energy: 0 };
-            if(target === 'active') state.active = cardObj;
-            else state.bench[bIdx] = cardObj;
-            addLog(`Played ${newCard.name} to ${target}.`);
-        }
-
-        state.hand.splice(idx, 1);
-        renderHand(); renderBoard();
-    }
-
-    function attack() {
-        if(!state.active || state.active.energy < 2) {
-            addLog("Not enough energy to attack!");
-            return;
-        }
-        document.getElementById('board').classList.add('shake');
-        state.oppHp -= 200;
-        addLog(`Dragapult used Phantom Dive! 200 DMG.`);
-        
-        setTimeout(() => {
-            document.getElementById('board').classList.remove('shake');
-            if(state.oppHp <= 0) {
-                addLog("Opponent K.O.! Taking a Prize Card.");
-                state.oppHp = 320;
-                claimPrize();
-            }
-            renderBoard();
-        }, 300);
-    }
-
-    function claimPrize() {
-        if(state.prizes > 0) {
-            state.prizes--;
-            state.hand.push(state.deck.shift()); // 模擬拿取一張
-            renderPrizes();
-            renderHand();
-            addLog("Prize Card added to hand.");
-        }
-    }
-
-    function openDiscard() {
-        const v = document.getElementById('discard-viewer');
-        v.innerHTML = "<h1>Discard Pile (Click to close)</h1>";
-        state.discard.forEach(c => {
-            v.innerHTML += `<div class="card-entity" style="background-image:url(${c.img})"></div>`;
-        });
-        v.style.display = "flex";
-    }
-
-    function addLog(msg) {
-        const l = document.getElementById('log');
-        l.innerHTML += `<div class="log-entry">${msg}</div>`;
-        l.scrollTop = l.scrollHeight;
-    }
-
-    // 基礎渲染與輔助功能
-    function updateDeckUI() {
-        const s = document.getElementById('deck-stack');
-        s.innerHTML = "";
-        for(let i=0; i<Math.min(state.deck.length, 10); i++) {
-            s.innerHTML += `<div class="pokemon-back" style="position:absolute; width:80px; height:112px; top:-${i}px; left:${i}px; z-index:${i}"></div>`;
-        }
-    }
-    function drawCard() { if(state.deck.length > 0) { state.hand.push(state.deck.shift()); renderHand(); updateDeckUI(); addLog("Drew a card."); } }
     function renderHand() {
         const h = document.getElementById('hand'); h.innerHTML = "";
         state.hand.forEach((c, i) => {
@@ -221,19 +179,65 @@
             h.appendChild(el);
         });
     }
+
+    function handleDrop(e, target, bIdx) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('hover');
+        const idx = e.dataTransfer.getData("idx");
+        const newCard = state.hand[idx];
+        let currentSlot = target === 'active' ? state.active : state.bench[bIdx];
+
+        if (currentSlot && newCard.stage > currentSlot.stage) {
+            addLog(`Evolution! ${newCard.name} is now in play.`);
+            const evolved = { ...newCard, energy: currentSlot.energy, currentHp: newCard.hp };
+            if(target === 'active') state.active = evolved; else state.bench[bIdx] = evolved;
+        } else {
+            const cardObj = { ...newCard, currentHp: newCard.hp, energy: 0 };
+            if(target === 'active') state.active = cardObj; else state.bench[bIdx] = cardObj;
+            addLog(`Placed ${newCard.name}.`);
+        }
+        state.hand.splice(idx, 1);
+        renderHand(); renderBoard();
+    }
+
+    function attack() {
+        if(!state.active || state.active.energy < 2) return addLog("Need 2 Energy!");
+        document.getElementById('board').classList.add('shake');
+        state.oppHp -= 200;
+        addLog("Phantom Dive! 200 damage.");
+        setTimeout(() => {
+            document.getElementById('board').classList.remove('shake');
+            if(state.oppHp <= 0) {
+                addLog("K.O.! Prize taken.");
+                state.oppHp = 320;
+                if(state.prizes > 0) { state.prizes--; state.hand.push(state.deck.shift()); renderPrizes(); renderHand(); }
+            }
+            renderBoard();
+        }, 300);
+    }
+
     function renderBoard() {
         document.getElementById('p-active').innerHTML = state.active ? createCardHTML(state.active) : "";
         const slots = document.querySelectorAll('#bench .slot');
         state.bench.forEach((c, i) => slots[i].innerHTML = c ? createCardHTML(c) : "");
         document.getElementById('opp-active').innerHTML = createCardHTML({img: CARD_DATA[0].img, energy: 2, currentHp: state.oppHp, hp: 320});
     }
+
     function createCardHTML(c) {
         return `<div class="card-entity" style="background-image:url(${c.img}); width:100%; height:100%;">
             <div class="energy-dot">${c.energy || 0}</div>
             <div style="position:absolute; bottom:-12px; width:100%; text-align:center; font-size:11px; background:rgba(0,0,0,0.8);">HP: ${c.currentHp || c.hp}</div>
         </div>`;
     }
-    function addEnergy() { if(state.active) { state.active.energy++; renderBoard(); addLog("Attached Energy."); } }
+
+    function addEnergy() { if(state.active) { state.active.energy++; renderBoard(); addLog("Energy attached."); } }
+    function openDiscard() {
+        const v = document.getElementById('discard-viewer');
+        v.innerHTML = "<h1>Discard Pile</h1>";
+        state.discard.forEach(c => v.innerHTML += `<div class="card-entity" style="background-image:url(${c.img})"></div>`);
+        v.style.display = "flex";
+    }
+    function addLog(msg) { const l = document.getElementById('log'); l.innerHTML += `<div class="log-entry">${msg}</div>`; l.scrollTop = l.scrollHeight; }
     function over(e) { e.preventDefault(); e.currentTarget.classList.add('hover'); }
 
     init();
